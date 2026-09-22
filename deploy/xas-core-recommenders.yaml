@@ -39,30 +39,9 @@ spec:
 apiVersion: xas.io/v1
 kind: RecommenderClass
 metadata:
-  name: threshold
-spec:
-  type: Threshold
----
-apiVersion: xas.io/v1
-kind: RecommenderClass
-metadata:
   name: cron
 spec:
   type: Cron
----
-apiVersion: xas.io/v1
-kind: RecommenderClass
-metadata:
-  name: cluster-proportional
-spec:
-  type: ClusterProportional
----
-apiVersion: xas.io/v1
-kind: RecommenderClass
-metadata:
-  name: addon-resizer
-spec:
-  type: AddonResizer
 ---
 apiVersion: apps/v1
 kind: Deployment

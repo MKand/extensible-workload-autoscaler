@@ -19,7 +19,8 @@ with the highest recommendation.
     *Server*.
 2.  *Recommend:* The *Recommender Engine* polls the *Server*, calculates
     desired replicas based on your policy, and pushes a *Recommendation*.
-3.  *Aggregate:* The Server aggregates all recommendations into an arbitrated recommendation:
+3.  *Arbitrate:* The Server aggregates all recommendations into an arbitrated
+    recommendation:
     *   *Activation Phase:* Checks if *any* recommender says "Active". If not,
         scales to 0.
     *   *Scaling Phase:* Takes the *maximum* replicas requested by any active

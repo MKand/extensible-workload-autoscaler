@@ -34,11 +34,6 @@ func (s *Server) UpdatePolicy(ctx context.Context, req *pb.UpdatePolicyRequest) 
 	if errors.Is(err, store.ErrStaleEtag) {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
-
-	if errors.Is(err, store.ErrMissingEtag) {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
-	}
-
 	if errors.Is(err, store.ErrUnknownEtag) {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}

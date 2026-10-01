@@ -1282,10 +1282,9 @@ func TestUpdatePolicyEtag(t *testing.T) {
 			wantErr: ErrUnknownEtag,
 		},
 		{
-			name:     "existing policy, empty etag: rejected",
+			name:     "existing policy, empty etag: overwritten",
 			existing: true,
 			etag:     func(string) string { return "" },
-			wantErr:  ErrMissingEtag,
 		},
 		{
 			name:     "existing policy, matching etag: updated",

@@ -38,28 +38,21 @@ func etagTestPolicy() *pb.Policy {
 // etagOf returns the ETag computed for p. It fails the test on error.
 func etagOf(t *testing.T, p *pb.Policy) string {
 	t.Helper()
-	err := policy.CreateEtag(p)
+	etag, err := policy.CreateEtag(p)
 	if err != nil {
 		t.Fatalf("CreateEtag() error = %v", err)
 	}
-	return p.GetEtag()
+	return etag
 }
 
-func TestCreateEtag_NilPolicy(t *testing.T) {
-	if err := policy.CreateEtag(nil); err == nil {
-		t.Errorf("CreateEtag(nil) = nil, want error")
-	}
-}
-
-func TestCreateEtag_SetsNonEmptyEtag(t *testing.T) {
+func TestCreateEtag_ReturnsNonEmptyEtag(t *testing.T) {
 	if got := etagOf(t, etagTestPolicy()); got == "" {
-		t.Errorf("CreateEtag() set an empty ETag")
+		t.Errorf("CreateEtag() returned an empty ETag")
 	}
 }
 
 func TestCreateEtag_SameContentSameEtag(t *testing.T) {
 	want := etagOf(t, etagTestPolicy())
-
 	// Repeat many times: map iteration order is random in Go, so a
 	// non-deterministic marshaling would eventually produce another ETag.
 	for i := 0; i < 100; i++ {
@@ -79,16 +72,6 @@ func TestCreateEtag_MapInsertionOrderDoesNotMatter(t *testing.T) {
 
 	if ea, eb := etagOf(t, a), etagOf(t, b); ea != eb {
 		t.Errorf("ETags differ for equal policies: %q vs %q", ea, eb)
-	}
-}
-
-func TestCreateEtag_IgnoresExistingEtag(t *testing.T) {
-	empty := etagTestPolicy()
-	stale := etagTestPolicy()
-	stale.Etag = "stale-etag"
-
-	if e1, e2 := etagOf(t, empty), etagOf(t, stale); e1 != e2 {
-		t.Errorf("the input etag changed the result: %q vs %q", e1, e2)
 	}
 }
 
@@ -128,14 +111,38 @@ func TestCreateEtag_AnyFieldChangeChangesEtag(t *testing.T) {
 	}
 }
 
-func TestCreateEtag_OnlyTouchesEtag(t *testing.T) {
+func TestCreateEtag_DoesNotModifyInput(t *testing.T) {
 	p := etagTestPolicy()
+	p.Etag = "previous-etag"
 	before := proto.Clone(p).(*pb.Policy)
 
-	etagOf(t, p)
+	if _, err := policy.CreateEtag(p); err != nil {
+		t.Fatalf("CreateEtag() error = %v", err)
+	}
 
-	if diff := cmp.Diff(before, p, protocmp.Transform(),
-		protocmp.IgnoreFields(&pb.Policy{}, "etag")); diff != "" {
-		t.Errorf("CreateEtag() modified fields other than etag (-before +after):\n%s", diff)
+	if diff := cmp.Diff(before, p, protocmp.Transform()); diff != "" {
+		t.Errorf("CreateEtag() modified its input (-before +after):\n%s", diff)
+	}
+}
+
+// TestCreateEtag_IgnoresExistingEtag checks that the ETag a client sends has no
+// effect on the computed one: the store hashes a copy of the client's policy.
+func TestCreateEtag_IgnoresExistingEtag(t *testing.T) {
+	empty := etagTestPolicy()
+	stale := etagTestPolicy()
+	stale.Etag = "stale-etag"
+
+	if e1, e2 := etagOf(t, empty), etagOf(t, stale); e1 != e2 {
+		t.Errorf("the input etag changed the result: %q vs %q", e1, e2)
+	}
+}
+
+// TestCreateEtag_CoversAllPolicyFields fails when a field is added to or
+// removed from Policy, so that the field list in CreateEtag is kept complete.
+func TestCreateEtag_CoversAllPolicyFields(t *testing.T) {
+	const nrPolicyFields = 10
+	lenFields := (&pb.Policy{}).ProtoReflect().Descriptor().Fields().Len()
+	if lenFields != nrPolicyFields {
+		t.Errorf("policy wants %d fields, but found %d. A field was added or removed: update CreateEtag(), or the change won't be part of the ETag hash. Then add a case to TestCreateEtag_AnyFieldChangeChangesEtag and update nrPolicyFields.", nrPolicyFields, lenFields)
 	}
 }

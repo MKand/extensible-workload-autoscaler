@@ -17,7 +17,6 @@ import (
 
 var (
 	ErrStaleEtag   = errors.New("etag does not match the stored policy")
-	ErrMissingEtag = errors.New("etag required for policy")
 	ErrUnknownEtag = errors.New("etag given for unknown policy")
 )
 
@@ -25,8 +24,9 @@ type ServerStore interface {
 	AddBatch(req *pb.IngestMetricsRequest) error
 	UpdateRecommenderState(req *pb.UpdateRecommenderStateRequest) error
 	// UpdatePolicy replaces the stored policy with p and returns the stored
-	// result with a new ETag. p.Etag must match the stored ETag when the policy
-	// exists (ErrMissingEtag, ErrStaleEtag), and must be empty when it does not
+	// result with a new ETag. If the policy exists, a non-empty p.Etag must
+	// match the stored one (ErrStaleEtag); an empty p.Etag overwrites it
+	// unconditionally. If the policy does not exist, p.Etag must be empty
 	// (ErrUnknownEtag). On error the stored policy is left unchanged.
 	UpdatePolicy(clusterName string, p *pb.Policy) (*pb.Policy, error)
 	DeletePolicy(id *pb.PolicyId) error
@@ -87,25 +87,22 @@ func (s *MemoryStore) UpdatePolicy(clusterName string, p *pb.Policy) (*pb.Policy
 	if ps != nil {
 		current = ps.Policy
 	}
-
 	if current != nil {
-		if p.Etag == "" {
-			return nil, ErrMissingEtag
-		}
-		if p.Etag != current.Etag {
+		// A sent ETag must match the stored one; an empty ETag overwrites.
+		if p.Etag != "" && p.Etag != current.Etag {
 			return nil, fmt.Errorf("%w: got %q, want %q", ErrStaleEtag, p.Etag, current.Etag)
 		}
-	} else {
-		if p.Etag != "" {
-			return nil, ErrUnknownEtag
-		}
+	} else if p.Etag != "" {
+		// An ETag was sent for a policy that does not exist.
+		return nil, ErrUnknownEtag
 	}
 
 	updated := proto.Clone(p).(*pb.Policy)
-	err := policy.CreateEtag(updated)
+	etag, err := policy.CreateEtag(updated)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create etag: %w", err)
 	}
+	updated.Etag = etag
 
 	if ps == nil {
 		ps = &PolicyState{

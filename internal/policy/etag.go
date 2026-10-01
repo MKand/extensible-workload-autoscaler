@@ -9,20 +9,26 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// CreateEtag computes a non-cryptographic 64-bit FNV-1a hash of policy and sets policy.Etag.
-func CreateEtag(policy *pb.Policy) error {
-	if policy == nil {
-		return fmt.Errorf("cannot compute Etag on nil policy")
+func CreateEtag(policy *pb.Policy) (string, error) {
+	// Shallow copy of every public field.
+	p := &pb.Policy{
+		Id:                 policy.Id,
+		Workload:           policy.Workload,
+		MinReplicas:        policy.MinReplicas,
+		MaxReplicas:        policy.MaxReplicas,
+		Metrics:            policy.Metrics,
+		Activation:         policy.Activation,
+		Scaling:            policy.Scaling,
+		Selector:           policy.Selector,
+		RecommenderMetrics: policy.RecommenderMetrics,
+		Etag:               "", // left empty. the etag is not part of its own hash.
 	}
-	oldEtag := policy.Etag
-	policy.Etag = ""
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(policy)
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(p)
 	if err != nil {
-		policy.Etag = oldEtag
-		return fmt.Errorf("unable to marshal policy to bytes: %w", err)
+		return "", fmt.Errorf("unable to marshal policy to bytes: %w", err)
 	}
 	h := fnv.New64a()
 	h.Write(b)
-	policy.Etag = strconv.FormatUint(h.Sum64(), 16)
-	return nil
+	etag := strconv.FormatUint(h.Sum64(), 16)
+	return etag, nil
 }

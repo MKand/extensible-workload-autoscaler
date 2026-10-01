@@ -58,7 +58,7 @@ func TestUpdatePolicyEtagCodesGRPC(t *testing.T) {
 	}{
 		{"create with empty etag", false, func(string) string { return "" }, codes.OK},
 		{"create with an etag", false, func(string) string { return "some-etag" }, codes.NotFound},
-		{"update with empty etag", true, func(string) string { return "" }, codes.FailedPrecondition},
+		{"update with empty etag (overwrite)", true, func(string) string { return "" }, codes.OK},
 		{"update with matching etag", true, func(s string) string { return s }, codes.OK},
 		{"update with stale etag", true, func(s string) string { return s + "-stale" }, codes.Aborted},
 	}

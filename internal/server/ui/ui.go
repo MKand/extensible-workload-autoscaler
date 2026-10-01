@@ -9,11 +9,11 @@ import (
 )
 
 // RegisterHandlers registers the UI handlers on the provided mux.
-func RegisterHandlers(mux *http.ServeMux, s store.MetricStore) {
+func RegisterHandlers(mux *http.ServeMux, s store.ServerStore) {
 	mux.HandleFunc("/", handleIndex(s))
 }
 
-func handleIndex(s store.MetricStore) http.HandlerFunc {
+func handleIndex(s store.ServerStore) http.HandlerFunc {
 	tmpl, err := template.New("index").Parse(pageTemplate)
 
 	if err != nil {
@@ -654,8 +654,8 @@ const pageTemplate = `
                     let metricCells = '';
                     metrics.forEach(m => {
                          let val = '-';
-                         if (ps.Series && ps.Series[m.key]) {
-                             for (const series of Object.values(ps.Series[m.key])) {
+                         if (ps.Metrics && ps.Metrics.Series && ps.Metrics.Series[m.key]) {
+                             for (const series of Object.values(ps.Metrics.Series[m.key])) {
                                  // Note: Internal structs (Series) use Capitalized fields
                                  if (series.PodName === pod.name) {
                                      val = formatFloat(series.ControlMetric.Value);

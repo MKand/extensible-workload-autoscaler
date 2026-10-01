@@ -16,11 +16,11 @@ import (
 
 type Server struct {
 	pb.UnimplementedXASServerServer
-	store store.MetricStore
+	store store.ServerStore
 	clock clock.Clock
 }
 
-func NewServer(s store.MetricStore, c clock.Clock) *Server {
+func NewServer(s store.ServerStore, c clock.Clock) *Server {
 	return &Server{store: s, clock: c}
 }
 

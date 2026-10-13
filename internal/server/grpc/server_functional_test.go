@@ -168,6 +168,76 @@ func TestUpdatePolicy_FullUpdate(t *testing.T) {
 	}
 }
 
+// --- GetPolicy & CreatePolicy ---
+
+func TestGetPolicy_GRPC(t *testing.T) {
+	_, client, cleanup := setupFunctionalGRPCServer(t, clock.RealClock{})
+	defer cleanup()
+	ctx := context.Background()
+
+	_, err := client.GetPolicy(ctx, &pb.GetPolicyRequest{Id: &pb.PolicyId{}})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Errorf("GetPolicy(empty ID) code = %v, want InvalidArgument", status.Code(err))
+	}
+
+	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
+	_, err = client.GetPolicy(ctx, &pb.GetPolicyRequest{Id: id})
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("GetPolicy(missing) code = %v, want NotFound", status.Code(err))
+	}
+
+	created, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+		Policy: &pb.Policy{Id: id, MinReplicas: 2, MaxReplicas: 8},
+	})
+	if err != nil {
+		t.Fatalf("CreatePolicy() error = %v", err)
+	}
+
+	got, err := client.GetPolicy(ctx, &pb.GetPolicyRequest{Id: id})
+	if err != nil {
+		t.Fatalf("GetPolicy() error = %v", err)
+	}
+	if diff := cmp.Diff(created, got, protocmp.Transform()); diff != "" {
+		t.Errorf("GetPolicy() mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestCreatePolicy_GRPC(t *testing.T) {
+	_, client, cleanup := setupFunctionalGRPCServer(t, clock.RealClock{})
+	defer cleanup()
+	ctx := context.Background()
+
+	_, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: &pb.PolicyId{}}})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Errorf("CreatePolicy(empty ID) code = %v, want InvalidArgument", status.Code(err))
+	}
+
+	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
+	_, err = client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+		Policy: &pb.Policy{Id: id, Etag: "some-etag"},
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("CreatePolicy(with etag) code = %v, want NotFound", status.Code(err))
+	}
+
+	created, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+		Policy: &pb.Policy{Id: id, MaxReplicas: 10},
+	})
+	if err != nil {
+		t.Fatalf("CreatePolicy() error = %v", err)
+	}
+	if created.GetEtag() == "" {
+		t.Error("CreatePolicy() returned an empty ETag")
+	}
+
+	_, err = client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+		Policy: &pb.Policy{Id: id, MaxReplicas: 20},
+	})
+	if status.Code(err) != codes.AlreadyExists {
+		t.Errorf("CreatePolicy(duplicate) code = %v, want AlreadyExists", status.Code(err))
+	}
+}
+
 // --- DeletePolicy ---
 
 func TestDeletePolicy_InvalidID(t *testing.T) {
@@ -187,7 +257,7 @@ func TestDeletePolicy_Effective(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: &pb.Policy{Id: id}})
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: id}})
 
 	client.DeletePolicy(ctx, &pb.DeletePolicyRequest{Id: id})
 
@@ -290,7 +360,7 @@ func TestUpdateWorkload_InvalidPodState(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: &pb.Policy{Id: id}})
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: id}})
 
 	_, err := client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
 		Id: id,
@@ -336,7 +406,7 @@ func TestGetControlMetrics_Aggregation(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -415,7 +485,7 @@ func TestGetControlMetrics_PodScope(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -480,7 +550,7 @@ func TestGetControlMetrics_PodContainerScope(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -549,7 +619,7 @@ func TestGetControlMetrics_ContainerScope(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -612,7 +682,7 @@ func TestGetControlMetrics_ContainerScopeAveragesOverReportingPodsOnly(t *testin
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -676,7 +746,7 @@ func TestGetControlMetrics_PodScopeOmitsContainerBreakdown(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -728,7 +798,7 @@ func TestGetControlMetrics_IgnoreNotReadyPods(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id:      id,
 			Metrics: []*pb.MetricDefinition{{Name: "m1", Gauge: &pb.Gauge{Aggregation: "Sum"}}},
@@ -834,7 +904,7 @@ func TestGetControlMetrics_SlidingWindow(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -909,7 +979,7 @@ func TestGetControlMetrics_DecayingHistogramWindow(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -997,7 +1067,7 @@ func TestUpdateRecommenderState_NotDefined(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: &pb.Policy{Id: id}})
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: id}})
 
 	_, err := client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
 		Id:              id,
@@ -1015,7 +1085,7 @@ func TestUpdateRecommenderState_EmptyClears(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id:      id,
 			Scaling: []*pb.RecommenderDefinition{{Name: "r1", Recommender: "Linear", Type: "Linear", Mode: "Active"}},
@@ -1062,7 +1132,7 @@ func TestUpdateRecommenderState_VerticalResources(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Scaling: []*pb.RecommenderDefinition{
@@ -1126,7 +1196,7 @@ func TestUpdateRecommenderState_VerticalResources_PerContainer(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Scaling: []*pb.RecommenderDefinition{
@@ -1207,7 +1277,7 @@ func TestUpdateRecommenderState_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Scaling: []*pb.RecommenderDefinition{
@@ -1269,7 +1339,7 @@ func TestGetRecommendation_NoRecommenders(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: &pb.Policy{Id: id}})
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: id}})
 
 	memStore.CalculateAll()
 	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: id})
@@ -1284,7 +1354,7 @@ func TestGetRecommendation_NeverCalled(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id:      id,
 			Scaling: []*pb.RecommenderDefinition{{Name: "r1", Recommender: "Linear", Mode: "Active"}},
@@ -1304,7 +1374,7 @@ func TestGetRecommendation_Aggregation(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Activation: []*pb.RecommenderDefinition{
@@ -1399,7 +1469,7 @@ func TestGetRecommendation_MetricStatuses(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1479,7 +1549,7 @@ func TestIngestMetrics_NotDefinedMetric(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: &pb.Policy{Id: id}})
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: &pb.Policy{Id: id}})
 
 	_, err := client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
 		ClusterName: "c1",
@@ -1500,7 +1570,7 @@ func TestIngestMetrics_Global(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1678,7 +1748,7 @@ func TestGetControlMetrics_DecayingHistogramCrossPod(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1783,7 +1853,7 @@ func TestIntent_GaugeAggregation(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1848,7 +1918,7 @@ func TestIntent_RateCalculation(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1905,7 +1975,7 @@ func TestIntent_DistributionPercentile(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -1960,7 +2030,7 @@ func TestIntent_DecayingDistributionPersistence(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -2054,7 +2124,7 @@ func TestIntent_Validation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+			_, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 				Policy: &pb.Policy{
 					Id:      id,
 					Metrics: []*pb.MetricDefinition{tc.metric},
@@ -2074,7 +2144,7 @@ func TestIntent_PodScope_Gauge(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -2123,7 +2193,7 @@ func TestIntent_PodScope_Rate(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -2172,7 +2242,7 @@ func TestIntent_PodScope_Distribution(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
@@ -2221,7 +2291,7 @@ func TestIntent_PodScope_DecayingDistribution(t *testing.T) {
 	ctx := context.Background()
 
 	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
-	client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
 		Policy: &pb.Policy{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{

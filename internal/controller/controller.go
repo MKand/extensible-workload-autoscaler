@@ -423,7 +423,7 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 	for i, ms := range resp.MetricStatuses {
 		policyCopy.Status.MetricStatuses[i] = xasv1.MetricStatus{
 			Name:        ms.Name,
-			LastUpdated: ms.GetTimestamp().AsTime().Local().Format(time.RFC3339),
+			LastUpdated: ms.GetTimestamp().AsTime().Format(time.RFC3339),
 			Value:       fmt.Sprintf("%g", ms.Value),
 			Error:       ms.Error,
 		}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
+	"github.com/gke-labs/extensible-workload-autoscaler/internal/podutil"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/server/metrics"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -331,12 +332,10 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 	cutoff := now - 60
 	gcCutoff := now - 600
 
-	readyReplicas := 0
-	for _, p := range workload {
-		if p.IsReady {
-			readyReplicas++
-		}
-	}
+	// Only the metrics of eligible pods are considered, and only eligible pods
+	// count as replicas.
+	eligiblePods := filterEligiblePods(workload)
+	readyReplicas := len(eligiblePods)
 	if readyReplicas == 0 {
 		readyReplicas = 1
 	}
@@ -348,7 +347,7 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 
 	for _, def := range defs {
 		id := newMetricID(def)
-		res, ok := ms.calculateMetric(id, def, ms.Series[id], workload, readyReplicas, now, cutoff, gcCutoff)
+		res, ok := ms.calculateMetric(id, def, ms.Series[id], eligiblePods, now, cutoff, gcCutoff)
 		if !ok {
 			continue
 		}
@@ -390,6 +389,18 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 		cm.ContainerMetrics = &pb.ContainerMetrics{ContainerMetrics: currentContainerMetrics}
 	}
 	return cm
+}
+
+// filterEligiblePods returns the pods of the workload whose metrics should be
+// considered, keyed by name. See podutil.IsEligible.
+func filterEligiblePods(workload map[string]*pb.PodState) map[string]*pb.PodState {
+	eligible := make(map[string]*pb.PodState, len(workload))
+	for name, p := range workload {
+		if podutil.IsEligible(podutil.FromPodState(p)) {
+			eligible[name] = p
+		}
+	}
+	return eligible
 }
 
 // metricValues returns the MetricValues entry stored under key, creating it
@@ -440,7 +451,8 @@ type metricResult struct {
 // calculateMetric aggregates the series of a single metric definition. It
 // reports false if no value could be computed.
 //
-// id identifies the metric whose state is tracked.
+// id identifies the metric whose state is tracked. Only the series of
+// eligiblePods are considered.
 //
 // The fields populated on the result depend on def.Scope:
 //   - "Global" (default): only the policy-wide value is set.
@@ -450,7 +462,7 @@ type metricResult struct {
 //     breakdown that rolls up into them.
 //   - "Container": only the per-container values are set, each averaged over
 //     the pods reporting that container.
-func (ms *MetricStore) calculateMetric(id metricID, def *pb.MetricDefinition, seriesMap map[seriesID]*Series, workload map[string]*pb.PodState, readyReplicas int, now, cutoff, gcCutoff int64) (metricResult, bool) {
+func (ms *MetricStore) calculateMetric(id metricID, def *pb.MetricDefinition, seriesMap map[seriesID]*Series, eligiblePods map[string]*pb.PodState, now, cutoff, gcCutoff int64) (metricResult, bool) {
 	if isGlobalScope(def.Scope) {
 		if gh, ok := ms.GlobalHistograms[id]; ok {
 			percentile := "p95"
@@ -530,8 +542,7 @@ func (ms *MetricStore) calculateMetric(id metricID, def *pb.MetricDefinition, se
 			continue
 		}
 
-		// Pod readiness
-		if podState, ok := workload[ser.PodName]; !ok || !podState.IsReady {
+		if _, ok := eligiblePods[ser.PodName]; !ok {
 			continue
 		}
 
@@ -596,7 +607,7 @@ func (ms *MetricStore) calculateMetric(id metricID, def *pb.MetricDefinition, se
 			// value.
 			weightedVal := val
 			if ser.ResourceName != "" && ser.ContainerName != "" {
-				w, ok := requestWeights.weight(workload[ser.PodName], ser.ContainerName, ser.ResourceName)
+				w, ok := requestWeights.weight(eligiblePods[ser.PodName], ser.ContainerName, ser.ResourceName)
 				if !ok {
 					continue
 				}
@@ -637,8 +648,8 @@ func (ms *MetricStore) calculateMetric(id metricID, def *pb.MetricDefinition, se
 		}
 	} else if hasGlobal {
 		val := globalSum
-		if agg == "Avg" {
-			val = val / float64(readyReplicas)
+		if agg == "Avg" && len(eligiblePods) > 0 {
+			val = val / float64(len(eligiblePods))
 		}
 		return metricResult{global: val}, true
 	} else if len(podFound) > 0 || len(containerSums) > 0 {

@@ -83,26 +83,23 @@ func TestIsEligible(t *testing.T) {
 	}
 }
 
-func TestFromPod(t *testing.T) {
-	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	transition := start.Add(time.Minute)
+func TestReadyCondition(t *testing.T) {
+	transition := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
 	pod := &corev1.Pod{
 		Status: corev1.PodStatus{
-			Phase:     corev1.PodRunning,
-			StartTime: &metav1.Time{Time: start},
 			Conditions: []corev1.PodCondition{
 				{Type: corev1.PodScheduled, Status: corev1.ConditionTrue},
 				{Type: corev1.PodReady, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: transition}},
 			},
 		},
 	}
-	want := Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: transition}
-	if got := FromPod(pod); got != want {
-		t.Errorf("FromPod() = %+v, want %+v", got, want)
+	cond := ReadyCondition(pod)
+	if cond == nil || cond.Type != corev1.PodReady || !cond.LastTransitionTime.Time.Equal(transition) {
+		t.Errorf("ReadyCondition() = %+v, want the Ready condition", cond)
 	}
 
-	if got := FromPod(&corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodPending}}); got != (Lifecycle{Phase: corev1.PodPending}) {
-		t.Errorf("FromPod(pending) = %+v, want only the phase set", got)
+	if cond := ReadyCondition(&corev1.Pod{}); cond != nil {
+		t.Errorf("ReadyCondition(no conditions) = %+v, want nil", cond)
 	}
 }
 

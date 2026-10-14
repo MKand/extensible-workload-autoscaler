@@ -60,19 +60,6 @@ func ReadyCondition(pod *corev1.Pod) *corev1.PodCondition {
 	return nil
 }
 
-// FromPod returns the lifecycle state of a Kubernetes pod.
-func FromPod(pod *corev1.Pod) Lifecycle {
-	l := Lifecycle{Phase: pod.Status.Phase}
-	if pod.Status.StartTime != nil {
-		l.StartTime = pod.Status.StartTime.Time
-	}
-	if cond := ReadyCondition(pod); cond != nil {
-		l.Ready = cond.Status == corev1.ConditionTrue
-		l.ReadyLastTransitionTime = cond.LastTransitionTime.Time
-	}
-	return l
-}
-
 // FromPodState returns the lifecycle state of a pod as reported to the Server.
 func FromPodState(p *pb.PodState) Lifecycle {
 	l := Lifecycle{

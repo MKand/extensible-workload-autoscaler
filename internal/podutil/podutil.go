@@ -27,20 +27,26 @@ type Lifecycle struct {
 	// ReadyLastTransitionTime is when the pod's Ready condition last changed.
 	// Zero if the pod has no Ready condition.
 	ReadyLastTransitionTime time.Time
+	// Terminating reports whether the pod's deletion has been requested.
+	Terminating bool
 }
 
 // IsEligible reports whether the metrics of a pod in the given lifecycle state
 // should be considered.
 //
-// A ready pod is eligible. A pod that isn't ready is eligible only if it is
-// running and has been ready before, i.e. it became unready later in its life
-// (e.g. its readiness probe fails under load). Pods that are pending, have
-// terminated, or have never been ready are not eligible.
+// A pod that is terminating is never eligible, even while it is still ready.
+// Otherwise a ready pod is eligible. A pod that isn't ready is eligible only
+// if it is running and has been ready before, i.e. it became unready later in
+// its life (e.g. its readiness probe fails under load). Pods that are pending,
+// have terminated, or have never been ready are not eligible.
 //
 // The Ready condition only records its last transition, so whether the pod has
 // been ready before is inferred as in the HPA: a pod whose Ready condition last
 // changed within InitialReadinessDelay of its start has never been ready.
 func IsEligible(l Lifecycle) bool {
+	if l.Terminating {
+		return false
+	}
 	if l.Ready {
 		return true
 	}
@@ -63,8 +69,9 @@ func ReadyCondition(pod *corev1.Pod) *corev1.PodCondition {
 // FromPodState returns the lifecycle state of a pod as reported to the Server.
 func FromPodState(p *pb.PodState) Lifecycle {
 	l := Lifecycle{
-		Phase: corev1.PodPhase(p.GetPhase()),
-		Ready: p.GetIsReady(),
+		Phase:       corev1.PodPhase(p.GetPhase()),
+		Ready:       p.GetIsReady(),
+		Terminating: p.GetTerminating(),
 	}
 	if p.GetStartTime() != nil {
 		l.StartTime = p.GetStartTime().AsTime()

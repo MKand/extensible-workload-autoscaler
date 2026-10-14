@@ -1230,8 +1230,11 @@ type PodState struct {
 	// When the pod's Ready condition last changed. Unset if the pod has no
 	// Ready condition yet.
 	ReadyLastTransitionTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ready_last_transition_time,json=readyLastTransitionTime,proto3" json:"ready_last_transition_time,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Whether the pod's deletion has been requested (graceful shutdown in
+	// progress).
+	Terminating   bool `protobuf:"varint,8,opt,name=terminating,proto3" json:"terminating,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PodState) Reset() {
@@ -1311,6 +1314,13 @@ func (x *PodState) GetReadyLastTransitionTime() *timestamppb.Timestamp {
 		return x.ReadyLastTransitionTime
 	}
 	return nil
+}
+
+func (x *PodState) GetTerminating() bool {
+	if x != nil {
+		return x.Terminating
+	}
+	return false
 }
 
 // ContainerState represents the state of a given container instance.
@@ -2766,7 +2776,7 @@ const file_xas_proto_rawDesc = "" +
 	"\x12GetWorkloadRequest\x12%\n" +
 	"\x02id\x18\x01 \x01(\v2\x15.xas.v1alpha.PolicyIdR\x02id\"5\n" +
 	"\bWorkload\x12)\n" +
-	"\x04pods\x18\x01 \x03(\v2\x15.xas.v1alpha.PodStateR\x04pods\"\xbd\x02\n" +
+	"\x04pods\x18\x01 \x03(\v2\x15.xas.v1alpha.PodStateR\x04pods\"\xdf\x02\n" +
 	"\bPodState\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
 	"\tnode_name\x18\x02 \x01(\tR\bnodeName\x12\x19\n" +
@@ -2777,7 +2787,8 @@ const file_xas_proto_rawDesc = "" +
 	"\x05phase\x18\x05 \x01(\tR\x05phase\x129\n" +
 	"\n" +
 	"start_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x12W\n" +
-	"\x1aready_last_transition_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x17readyLastTransitionTime\"\xa4\x02\n" +
+	"\x1aready_last_transition_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x17readyLastTransitionTime\x12 \n" +
+	"\vterminating\x18\b \x01(\bR\vterminating\"\xa4\x02\n" +
 	"\x0eContainerState\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12E\n" +
 	"\brequests\x18\x02 \x03(\v2).xas.v1alpha.ContainerState.RequestsEntryR\brequests\x12?\n" +

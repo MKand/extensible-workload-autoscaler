@@ -73,6 +73,16 @@ func TestIsEligible(t *testing.T) {
 			l:    Lifecycle{Phase: corev1.PodFailed, StartTime: start, ReadyLastTransitionTime: start.Add(20 * time.Minute)},
 			want: false,
 		},
+		{
+			name: "terminating while still ready",
+			l:    Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: start.Add(2 * time.Minute), Terminating: true},
+			want: false,
+		},
+		{
+			name: "terminating, unready later in its life",
+			l:    Lifecycle{Phase: corev1.PodRunning, StartTime: start, ReadyLastTransitionTime: start.Add(20 * time.Minute), Terminating: true},
+			want: false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -111,8 +121,9 @@ func TestFromPodState(t *testing.T) {
 		IsReady:                 true,
 		StartTime:               timestamppb.New(start),
 		ReadyLastTransitionTime: timestamppb.New(transition),
+		Terminating:             true,
 	}
-	want := Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: transition}
+	want := Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: transition, Terminating: true}
 	if got := FromPodState(p); got != want {
 		t.Errorf("FromPodState() = %+v, want %+v", got, want)
 	}

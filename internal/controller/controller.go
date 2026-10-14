@@ -636,10 +636,11 @@ func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv
 // Server needs to decide whether the pod's metrics should be considered.
 func buildPodState(pod *corev1.Pod) *pb.PodState {
 	state := &pb.PodState{
-		Name:       pod.Name,
-		NodeName:   pod.Spec.NodeName,
-		Phase:      string(pod.Status.Phase),
-		Containers: buildContainerStates(pod),
+		Name:        pod.Name,
+		NodeName:    pod.Spec.NodeName,
+		Phase:       string(pod.Status.Phase),
+		Terminating: pod.DeletionTimestamp != nil,
+		Containers:  buildContainerStates(pod),
 	}
 	if pod.Status.StartTime != nil {
 		state.StartTime = timestamppb.New(pod.Status.StartTime.Time)

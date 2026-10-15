@@ -9,9 +9,9 @@ import (
 // MetricDefinitions returns every metric a policy defines, the policy-wide ones as well
 // as the ones owned by its recommenders, in no particular order.
 func MetricDefinitions(p *pb.Policy) []*pb.MetricDefinition {
-	metrics := make([]*pb.MetricDefinition, 0, len(p.Metrics))
-	metrics = append(metrics, p.Metrics...)
-	for _, ml := range p.RecommenderMetrics {
+	metrics := make([]*pb.MetricDefinition, 0, len(p.GetMetrics()))
+	metrics = append(metrics, p.GetMetrics()...)
+	for _, ml := range p.GetRecommenderMetrics() {
 		metrics = append(metrics, ml.GetDefinitions()...)
 	}
 	return metrics

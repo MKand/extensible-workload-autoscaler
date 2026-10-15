@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,13 +117,13 @@ func TestReadyCondition(t *testing.T) {
 func TestFromPodState(t *testing.T) {
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	transition := start.Add(time.Minute)
-	p := &pb.PodState{
-		Phase:                   "Running",
-		IsReady:                 true,
+	p := pb.PodState_builder{
+		Phase:                   proto.String("Running"),
+		IsReady:                 proto.Bool(true),
 		StartTime:               timestamppb.New(start),
 		ReadyLastTransitionTime: timestamppb.New(transition),
 		DeletionTimestamp:       timestamppb.New(transition.Add(time.Hour)),
-	}
+	}.Build()
 	want := Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: transition, DeletionTimestamp: transition.Add(time.Hour)}
 	if got := FromPodState(p); got != want {
 		t.Errorf("FromPodState() = %+v, want %+v", got, want)

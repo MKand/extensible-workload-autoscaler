@@ -7,23 +7,24 @@ import (
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // decaying returns a decaying distribution metric definition.
 func decaying(name, typ, percentile string, halfLife time.Duration, bucketSize string) *pb.MetricDefinition {
-	return &pb.MetricDefinition{
-		Name:     name,
-		Provider: "kubelet",
+	return pb.MetricDefinition_builder{
+		Name:     proto.String(name),
+		Provider: proto.String("kubelet"),
 		Params:   map[string]string{"type": typ},
-		Scope:    "PodContainer",
-		DecayingDistribution: &pb.DecayingDistribution{
-			Percentile: percentile,
+		Scope:    proto.String("PodContainer"),
+		DecayingDistribution: pb.DecayingDistribution_builder{
+			Percentile: proto.String(percentile),
 			HalfLife:   durationpb.New(halfLife),
-			BucketSize: bucketSize,
-		},
-	}
+			BucketSize: proto.String(bucketSize),
+		}.Build(),
+	}.Build()
 }
 
 func defaultOwned(resource, slotSuffix, percentile string) *pb.MetricDefinition {
@@ -43,31 +44,31 @@ func TestOwnedMetrics(t *testing.T) {
 	memUpper := defaultOwned("memory", "-upper-bound", "p99")
 
 	// A user CPU metric with its own source, filter, half-life and bucket size.
-	userCPU := &pb.MetricDefinition{
-		Name:     "cpu_p95",
-		Provider: "prometheus",
+	userCPU := pb.MetricDefinition_builder{
+		Name:     proto.String("cpu_p95"),
+		Provider: proto.String("prometheus"),
 		Params:   map[string]string{"query": "container_cpu"},
 		Filter:   map[string]string{"env": "prod"},
-		Scope:    "PodContainer",
-		DecayingDistribution: &pb.DecayingDistribution{
-			Percentile: "p95",
+		Scope:    proto.String("PodContainer"),
+		DecayingDistribution: pb.DecayingDistribution_builder{
+			Percentile: proto.String("p95"),
 			HalfLife:   durationpb.New(12 * time.Hour),
-			BucketSize: "0.01",
-		},
-	}
+			BucketSize: proto.String("0.01"),
+		}.Build(),
+	}.Build()
 	copied := func(name, percentile string) *pb.MetricDefinition {
-		return &pb.MetricDefinition{
-			Name:     name,
-			Provider: "prometheus",
+		return pb.MetricDefinition_builder{
+			Name:     proto.String(name),
+			Provider: proto.String("prometheus"),
 			Params:   map[string]string{"query": "container_cpu"},
 			Filter:   map[string]string{"env": "prod"},
-			Scope:    "PodContainer",
-			DecayingDistribution: &pb.DecayingDistribution{
-				Percentile: percentile,
+			Scope:    proto.String("PodContainer"),
+			DecayingDistribution: pb.DecayingDistribution_builder{
+				Percentile: proto.String(percentile),
 				HalfLife:   durationpb.New(12 * time.Hour),
-				BucketSize: "0.01",
-			},
-		}
+				BucketSize: proto.String("0.01"),
+			}.Build(),
+		}.Build()
 	}
 
 	allPolicyMetrics := []*pb.MetricDefinition{
@@ -129,10 +130,10 @@ func TestOwnedMetrics(t *testing.T) {
 		{
 			name:   "configured metric that isn't a decaying distribution",
 			params: map[string]string{"cpu-metric": "cpu_gauge"},
-			policyMetrics: []*pb.MetricDefinition{{
-				Name: "cpu_gauge", Provider: "kubelet", Scope: "PodContainer",
-				Gauge: &pb.Gauge{Aggregation: "Max"},
-			}},
+			policyMetrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{
+				Name: proto.String("cpu_gauge"), Provider: proto.String("kubelet"), Scope: proto.String("PodContainer"),
+				Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build(),
+			}.Build()},
 			wantErr: `cpu-metric "cpu_gauge" must be a decayingDistribution metric`,
 		},
 		{
@@ -172,7 +173,7 @@ func TestOwnedMetrics(t *testing.T) {
 				params[k] = v
 			}
 			r := &VPARecommender{}
-			got, err := r.OwnedMetrics(&pb.RecommenderDefinition{Name: "vpa-sizing", Params: params}, tt.policyMetrics)
+			got, err := r.OwnedMetrics(pb.RecommenderDefinition_builder{Name: proto.String("vpa-sizing"), Params: params}.Build(), tt.policyMetrics)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("OwnedMetrics() error = %v, want it to contain %q", err, tt.wantErr)
@@ -185,7 +186,7 @@ func TestOwnedMetrics(t *testing.T) {
 			if err != nil {
 				t.Fatalf("OwnedMetrics() unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("OwnedMetrics() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -195,9 +196,9 @@ func TestOwnedMetrics(t *testing.T) {
 func TestRecommendOwnedMetrics(t *testing.T) {
 	const mib = 1024 * 1024
 	podMetrics := func(values map[string]float64) *pb.ControlMetrics {
-		return &pb.ControlMetrics{PodContainerMetrics: map[string]*pb.ContainerMetrics{
-			"pod-1": {ContainerMetrics: map[string]*pb.MetricValues{"app": {Values: values}}},
-		}}
+		return pb.ControlMetrics_builder{PodContainerMetrics: map[string]*pb.ContainerMetrics{
+			"pod-1": pb.ContainerMetrics_builder{ContainerMetrics: map[string]*pb.MetricValues{"app": pb.MetricValues_builder{Values: values}.Build()}}.Build(),
+		}}.Build()
 	}
 	owned := podMetrics(map[string]float64{
 		"cpu-target": 0.2, "cpu-lower-bound": 0.1, "cpu-upper-bound": 0.4,
@@ -228,11 +229,11 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 			name:   "all slots owned",
 			params: with(),
 			owned:  owned,
-			want: &pb.ContainerResource{
-				ContainerName: "app",
+			want: pb.ContainerResource_builder{
+				ContainerName: proto.String("app"),
 				Requests:      map[string]string{"cpu": "200m", "memory": "200Mi"},
 				Limits:        map[string]string{"cpu": "200m", "memory": "200Mi"},
-			},
+			}.Build(),
 			wantSummary: "cpu: target 200m [100m, 400m]; memory: target 200Mi [100Mi, 400Mi]",
 		},
 		{
@@ -240,11 +241,11 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 			params: with("cpu-metric", "cpu_p95", "controlled-resources", "cpu,memory"),
 			state:  podMetrics(map[string]float64{"cpu_p95": 0.3}),
 			owned:  owned,
-			want: &pb.ContainerResource{
-				ContainerName: "app",
+			want: pb.ContainerResource_builder{
+				ContainerName: proto.String("app"),
 				Requests:      map[string]string{"cpu": "300m", "memory": "200Mi"},
 				Limits:        map[string]string{"cpu": "300m", "memory": "200Mi"},
-			},
+			}.Build(),
 			wantSummary: "cpu: target 300m [100m, 400m]; memory: target 200Mi [100Mi, 400Mi]",
 		},
 		{
@@ -252,11 +253,11 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 			params: with("mem-upper-bound-metric", "mem_max"),
 			state:  podMetrics(map[string]float64{"mem_max": 800 * mib}),
 			owned:  owned,
-			want: &pb.ContainerResource{
-				ContainerName: "app",
+			want: pb.ContainerResource_builder{
+				ContainerName: proto.String("app"),
 				Requests:      map[string]string{"memory": "200Mi"},
 				Limits:        map[string]string{"memory": "200Mi"},
-			},
+			}.Build(),
 			wantSummary: "memory: target 200Mi [100Mi, 800Mi]",
 		},
 		{
@@ -264,11 +265,11 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 			params: with("controlled-resources", "cpu"),
 			state:  nil,
 			owned:  owned,
-			want: &pb.ContainerResource{
-				ContainerName: "app",
+			want: pb.ContainerResource_builder{
+				ContainerName: proto.String("app"),
 				Requests:      map[string]string{"cpu": "200m"},
 				Limits:        map[string]string{"cpu": "200m"},
-			},
+			}.Build(),
 			wantSummary: "cpu: target 200m [100m, 400m]",
 		},
 	}
@@ -277,21 +278,21 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 	// recommended. Its limits equal its requests, so the recommended limits
 	// equal the recommended requests.
 	current := map[string]string{"cpu": "1m", "memory": "1Mi"}
-	workload := &pb.Workload{Pods: []*pb.PodState{{
-		Name:       "pod-1",
-		Containers: []*pb.ContainerState{{Name: "app", Requests: current, Limits: current}},
-	}}}
+	workload := pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{
+		Name:       proto.String("pod-1"),
+		Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: current, Limits: current}.Build()},
+	}.Build()}}.Build()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &VPARecommender{}
-			got := r.Recommend(&pb.RecommenderDefinition{Params: tt.params}, tt.state, tt.owned, workload)
-			if !got.IsActive {
-				t.Fatalf("Recommend() inactive: %s", got.Message)
+			got := r.Recommend(pb.RecommenderDefinition_builder{Params: tt.params}.Build(), tt.state, tt.owned, workload)
+			if !got.GetIsActive() {
+				t.Fatalf("Recommend() inactive: %s", got.GetMessage())
 			}
-			if !strings.Contains(got.Message, tt.wantSummary) || strings.Contains(got.Message, "warnings") {
-				t.Errorf("Recommend() Message = %q, want it to contain %q and no warnings", got.Message, tt.wantSummary)
+			if !strings.Contains(got.GetMessage(), tt.wantSummary) || strings.Contains(got.GetMessage(), "warnings") {
+				t.Errorf("Recommend() Message = %q, want it to contain %q and no warnings", got.GetMessage(), tt.wantSummary)
 			}
-			if diff := cmp.Diff([]*pb.ContainerResource{tt.want}, got.WorkloadResources, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff([]*pb.ContainerResource{tt.want}, got.GetWorkloadResources(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("Recommend() WorkloadResources mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -300,11 +301,11 @@ func TestRecommendOwnedMetrics(t *testing.T) {
 
 func TestRecommendNoOwnedData(t *testing.T) {
 	r := &VPARecommender{}
-	got := r.Recommend(&pb.RecommenderDefinition{Params: map[string]string{"container": "app"}}, &pb.ControlMetrics{}, &pb.ControlMetrics{}, nil)
-	if got.IsActive {
+	got := r.Recommend(pb.RecommenderDefinition_builder{Params: map[string]string{"container": "app"}}.Build(), &pb.ControlMetrics{}, &pb.ControlMetrics{}, nil)
+	if got.GetIsActive() {
 		t.Fatalf("Recommend() active, want inactive without data")
 	}
-	if !strings.Contains(got.Message, "PodMetrics is empty") {
-		t.Errorf("Recommend() Message = %q, want it to contain %q", got.Message, "PodMetrics is empty")
+	if !strings.Contains(got.GetMessage(), "PodMetrics is empty") {
+		t.Errorf("Recommend() Message = %q, want it to contain %q", got.GetMessage(), "PodMetrics is empty")
 	}
 }

@@ -21,59 +21,59 @@ func TestLinearRecommend(t *testing.T) {
 	}{
 		{
 			name: "Scale Up",
-			def: &pb.RecommenderDefinition{
-				Name:        "cpu",
-				Recommender: "Linear",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("cpu"),
+				Recommender: proto.String("Linear"),
 				Params:      map[string]string{"metric": "cpu", "target": "0.5"},
-			},
+			}.Build(),
 			controlMetrics: map[string]float64{"cpu": 0.8},
 			readyReplicas:  2,
 			// Desired = 2 * (0.8 / 0.5) = 2 * 1.6 = 3.2 -> ceil(3.2) = 4
-			want: &pb.Recommendation{
+			want: pb.Recommendation_builder{
 				Replicas: proto.Int32(4),
-				IsActive: true,
-			},
+				IsActive: proto.Bool(true),
+			}.Build(),
 		},
 		{
 			name: "Scale Down",
-			def: &pb.RecommenderDefinition{
-				Name:        "cpu",
-				Recommender: "Linear",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("cpu"),
+				Recommender: proto.String("Linear"),
 				Params:      map[string]string{"metric": "cpu", "target": "0.5"},
-			},
+			}.Build(),
 			controlMetrics: map[string]float64{"cpu": 0.2},
 			readyReplicas:  4,
 			// Desired = 4 * (0.2 / 0.5) = 4 * 0.4 = 1.6 -> ceil(1.6) = 2
-			want: &pb.Recommendation{
+			want: pb.Recommendation_builder{
 				Replicas: proto.Int32(2),
-				IsActive: true,
-			},
+				IsActive: proto.Bool(true),
+			}.Build(),
 		},
 		{
 			name: "Missing Metric",
-			def: &pb.RecommenderDefinition{
-				Name:        "cpu",
-				Recommender: "Linear",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("cpu"),
+				Recommender: proto.String("Linear"),
 				Params:      map[string]string{"metric": "unknown", "target": "0.5"},
-			},
+			}.Build(),
 			controlMetrics: map[string]float64{"cpu": 0.8},
 			readyReplicas:  2,
-			want: &pb.Recommendation{
-				Message: "metric 'unknown' not found",
-			},
+			want: pb.Recommendation_builder{
+				Message: proto.String("metric 'unknown' not found"),
+			}.Build(),
 		},
 		{
 			name: "Missing Param",
-			def: &pb.RecommenderDefinition{
-				Name:        "cpu",
-				Recommender: "Linear",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("cpu"),
+				Recommender: proto.String("Linear"),
 				Params:      map[string]string{"metric": "cpu"},
-			},
+			}.Build(),
 			controlMetrics: map[string]float64{"cpu": 0.8},
 			readyReplicas:  2,
-			want: &pb.Recommendation{
-				Message: "missing target param",
-			},
+			want: pb.Recommendation_builder{
+				Message: proto.String("missing target param"),
+			}.Build(),
 		},
 	}
 
@@ -81,12 +81,12 @@ func TestLinearRecommend(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			state := &pb.ControlMetrics{
+			state := pb.ControlMetrics_builder{
 				Values:        tc.controlMetrics,
-				ReadyReplicas: tc.readyReplicas,
-			}
+				ReadyReplicas: proto.Int32(tc.readyReplicas),
+			}.Build()
 			got := rec.Recommend(tc.def, state, nil, nil)
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("Recommend() mismatch (-want +got):\n%s", diff)
 			}
 		})

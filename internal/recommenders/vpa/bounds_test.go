@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -15,18 +16,18 @@ const mib = 1024 * 1024
 // recommendation uses the max across pods; the tests use a safety margin of 1
 // to keep the numbers simple: target 200m/200Mi, bounds [150m, 400m] and
 // [150Mi, 400Mi].
-var boundsState = &pb.ControlMetrics{
+var boundsState = pb.ControlMetrics_builder{
 	PodContainerMetrics: map[string]*pb.ContainerMetrics{
-		"pod-1": {ContainerMetrics: map[string]*pb.MetricValues{"app": {Values: map[string]float64{
+		"pod-1": pb.ContainerMetrics_builder{ContainerMetrics: map[string]*pb.MetricValues{"app": pb.MetricValues_builder{Values: map[string]float64{
 			"cpu_p50": 0.1, "cpu_p90": 0.2, "cpu_p99": 0.4,
 			"mem_p50": 100 * mib, "mem_p90": 200 * mib, "mem_p99": 400 * mib,
-		}}}},
-		"pod-2": {ContainerMetrics: map[string]*pb.MetricValues{"app": {Values: map[string]float64{
+		}}.Build()}}.Build(),
+		"pod-2": pb.ContainerMetrics_builder{ContainerMetrics: map[string]*pb.MetricValues{"app": pb.MetricValues_builder{Values: map[string]float64{
 			"cpu_p50": 0.15, "cpu_p90": 0.1, "cpu_p99": 0.3,
 			"mem_p50": 150 * mib, "mem_p90": 100 * mib, "mem_p99": 300 * mib,
-		}}}},
+		}}.Build()}}.Build(),
 	},
-}
+}.Build()
 
 func boundsParams(kv ...string) map[string]string {
 	p := map[string]string{
@@ -60,13 +61,13 @@ func podWith(name string, requests ...string) *pb.PodState {
 // podWithLimits returns a pod whose "app" container has the given requests and
 // limits.
 func podWithLimits(name string, requests, limits map[string]string) *pb.PodState {
-	return &pb.PodState{Name: name, Containers: []*pb.ContainerState{{Name: "app", Requests: requests, Limits: limits}}}
+	return pb.PodState_builder{Name: proto.String(name), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: requests, Limits: limits}.Build()}}.Build()
 }
 
 // TestRecommendBounds checks the bounds computed around the target, reported
 // in the message.
 func TestRecommendBounds(t *testing.T) {
-	workload := &pb.Workload{Pods: []*pb.PodState{podWith("pod-1", "cpu", "200m", "memory", "200Mi")}}
+	workload := pb.Workload_builder{Pods: []*pb.PodState{podWith("pod-1", "cpu", "200m", "memory", "200Mi")}}.Build()
 	tests := []struct {
 		name            string
 		params          map[string]string
@@ -108,12 +109,12 @@ func TestRecommendBounds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &VPARecommender{}
-			got := r.Recommend(&pb.RecommenderDefinition{Params: tt.params}, boundsState, nil, workload)
-			if !got.IsActive {
-				t.Fatalf("Recommend() inactive: %s", got.Message)
+			got := r.Recommend(pb.RecommenderDefinition_builder{Params: tt.params}.Build(), boundsState, nil, workload)
+			if !got.GetIsActive() {
+				t.Fatalf("Recommend() inactive: %s", got.GetMessage())
 			}
-			if !strings.Contains(got.Message, tt.wantMsgContains) {
-				t.Errorf("Recommend() Message = %q, want it to contain %q", got.Message, tt.wantMsgContains)
+			if !strings.Contains(got.GetMessage(), tt.wantMsgContains) {
+				t.Errorf("Recommend() Message = %q, want it to contain %q", got.GetMessage(), tt.wantMsgContains)
 			}
 		})
 	}
@@ -125,7 +126,7 @@ func TestRecommendBounds(t *testing.T) {
 func TestRecommendWorkload(t *testing.T) {
 	resources := func(cpu, mem string) []*pb.ContainerResource {
 		reqs := map[string]string{"cpu": cpu, "memory": mem}
-		return []*pb.ContainerResource{{ContainerName: "app", Requests: reqs, Limits: reqs}}
+		return []*pb.ContainerResource{pb.ContainerResource_builder{ContainerName: proto.String("app"), Requests: reqs, Limits: reqs}.Build()}
 	}
 	target := resources("200m", "200Mi")
 
@@ -205,18 +206,18 @@ func TestRecommendWorkload(t *testing.T) {
 			pods:       []*pb.PodState{podWith("pod-1", "cpu", "200m")},
 			wantActive: true,
 			// Without a memory request, there's no ratio for the memory limit.
-			want: []*pb.ContainerResource{{
-				ContainerName: "app",
+			want: []*pb.ContainerResource{pb.ContainerResource_builder{
+				ContainerName: proto.String("app"),
 				Requests:      map[string]string{"cpu": "200m", "memory": "200Mi"},
 				Limits:        map[string]string{"cpu": "200m"},
-			}},
+			}.Build()},
 			wantMsgContains: "no current memory request",
 		},
 		{
 			name:   "pods without the container are ignored",
 			params: boundsParams(allBounds...),
 			pods: []*pb.PodState{
-				{Name: "other", Containers: []*pb.ContainerState{{Name: "sidecar", Requests: map[string]string{"cpu": "1m"}}}},
+				pb.PodState_builder{Name: proto.String("other"), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("sidecar"), Requests: map[string]string{"cpu": "1m"}}.Build()}}.Build(),
 				podWith("pod-1", "cpu", "190m", "memory", "210Mi"),
 			},
 			wantActive: true,
@@ -225,7 +226,7 @@ func TestRecommendWorkload(t *testing.T) {
 		{
 			name:            "no pod has the container",
 			params:          boundsParams(allBounds...),
-			pods:            []*pb.PodState{{Name: "other", Containers: []*pb.ContainerState{{Name: "sidecar"}}}},
+			pods:            []*pb.PodState{pb.PodState_builder{Name: proto.String("other"), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("sidecar")}.Build()}}.Build()},
 			wantActive:      false,
 			wantMsgContains: `no pod of the workload has the container "app"`,
 		},
@@ -240,18 +241,18 @@ func TestRecommendWorkload(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &VPARecommender{}
-			got := r.Recommend(&pb.RecommenderDefinition{Params: tt.params}, boundsState, nil, &pb.Workload{Pods: tt.pods})
-			if got.IsActive != tt.wantActive {
-				t.Fatalf("Recommend() IsActive = %v, want %v (message %q)", got.IsActive, tt.wantActive, got.Message)
+			got := r.Recommend(pb.RecommenderDefinition_builder{Params: tt.params}.Build(), boundsState, nil, pb.Workload_builder{Pods: tt.pods}.Build())
+			if got.GetIsActive() != tt.wantActive {
+				t.Fatalf("Recommend() IsActive = %v, want %v (message %q)", got.GetIsActive(), tt.wantActive, got.GetMessage())
 			}
-			if len(got.PodContainerResources) != 0 {
-				t.Errorf("Recommend() PodContainerResources = %v, want none", got.PodContainerResources)
+			if len(got.GetPodContainerResources()) != 0 {
+				t.Errorf("Recommend() PodContainerResources = %v, want none", got.GetPodContainerResources())
 			}
-			if diff := cmp.Diff(tt.want, got.WorkloadResources, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tt.want, got.GetWorkloadResources(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("Recommend() WorkloadResources mismatch (-want +got):\n%s", diff)
 			}
-			if !strings.Contains(got.Message, tt.wantMsgContains) {
-				t.Errorf("Recommend() Message = %q, want it to contain %q", got.Message, tt.wantMsgContains)
+			if !strings.Contains(got.GetMessage(), tt.wantMsgContains) {
+				t.Errorf("Recommend() Message = %q, want it to contain %q", got.GetMessage(), tt.wantMsgContains)
 			}
 		})
 	}
@@ -341,12 +342,12 @@ func TestRecommendLimits(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &VPARecommender{}
-			got := r.Recommend(&pb.RecommenderDefinition{Params: tt.params}, boundsState, nil, &pb.Workload{Pods: tt.pods})
-			if !got.IsActive {
-				t.Fatalf("Recommend() inactive: %s", got.Message)
+			got := r.Recommend(pb.RecommenderDefinition_builder{Params: tt.params}.Build(), boundsState, nil, pb.Workload_builder{Pods: tt.pods}.Build())
+			if !got.GetIsActive() {
+				t.Fatalf("Recommend() inactive: %s", got.GetMessage())
 			}
-			want := []*pb.ContainerResource{{ContainerName: "app", Requests: tt.wantReqs, Limits: tt.wantLimits}}
-			if diff := cmp.Diff(want, got.WorkloadResources, protocmp.Transform()); diff != "" {
+			want := []*pb.ContainerResource{pb.ContainerResource_builder{ContainerName: proto.String("app"), Requests: tt.wantReqs, Limits: tt.wantLimits}.Build()}
+			if diff := cmp.Diff(want, got.GetWorkloadResources(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("Recommend() WorkloadResources mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -370,7 +371,7 @@ func TestParseConfigLimitRatio(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseConfig(&pb.RecommenderDefinition{Params: tt.params})
+			_, err := parseConfig(pb.RecommenderDefinition_builder{Params: tt.params}.Build())
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("parseConfig() error = %v", err)

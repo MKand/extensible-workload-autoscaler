@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 )
 
@@ -18,34 +20,34 @@ type config struct {
 func (r *LinearRecommender) Recommend(def *pb.RecommenderDefinition, state, _ *pb.ControlMetrics, _ *pb.Workload) *pb.Recommendation {
 	cfg, err := parseConfig(def)
 	if err != nil {
-		return &pb.Recommendation{
-			Message: err.Error(),
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String(err.Error()),
+		}.Build()
 	}
 
-	val, ok := state.Values[cfg.metric]
+	val, ok := state.GetValues()[cfg.metric]
 	if !ok {
-		return &pb.Recommendation{
-			Message: fmt.Sprintf("metric '%s' not found", cfg.metric),
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String(fmt.Sprintf("metric '%s' not found", cfg.metric)),
+		}.Build()
 	}
 
 	ratio := val / cfg.target
-	desired := int32(math.Ceil(float64(state.ReadyReplicas) * ratio))
+	desired := int32(math.Ceil(float64(state.GetReadyReplicas()) * ratio))
 
-	return &pb.Recommendation{
+	return pb.Recommendation_builder{
 		Replicas: &desired,
-		IsActive: true,
-	}
+		IsActive: proto.Bool(true),
+	}.Build()
 }
 
 func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
-	metric := def.Params["metric"]
+	metric := def.GetParams()["metric"]
 	if metric == "" {
 		return nil, fmt.Errorf("missing metric param")
 	}
 
-	targetStr := def.Params["target"]
+	targetStr := def.GetParams()["target"]
 	if targetStr == "" {
 		return nil, fmt.Errorf("missing target param")
 	}

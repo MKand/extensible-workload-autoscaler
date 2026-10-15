@@ -9,13 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/clock"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/policy"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/server/metrics"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -92,14 +93,14 @@ func (s *MemoryStore) CreatePolicy(clusterName string, p *pb.Policy) (*pb.Policy
 	if ps != nil {
 		return nil, ErrPolicyAlreadyExists
 	}
-	if p.Etag != "" {
+	if p.GetEtag() != "" {
 		return nil, ErrUnknownEtag
 	}
 	return s.savePolicy(p, ps, key)
 }
 
 func (s *MemoryStore) fetchPolicy(clusterName string, p *pb.Policy) (policyID, *PolicyState) {
-	key := policyID{cluster: clusterName, ns: p.Id.GetNamespace(), name: p.Id.GetName()}
+	key := policyID{cluster: clusterName, ns: p.GetId().GetNamespace(), name: p.GetId().GetName()}
 	ps := s.state[key]
 	return key, ps
 }
@@ -116,7 +117,7 @@ func (s *MemoryStore) savePolicy(p *pb.Policy, ps *PolicyState, key policyID) (*
 	if err != nil {
 		return nil, fmt.Errorf("unable to create etag: %w", err)
 	}
-	created.Etag = etag
+	created.SetEtag(etag)
 
 	if ps == nil {
 		ps = &PolicyState{
@@ -144,14 +145,14 @@ func (s *MemoryStore) UpdatePolicy(clusterName string, allowMissing bool, p *pb.
 	key, ps := s.fetchPolicy(clusterName, p)
 	if ps != nil && ps.Policy != nil {
 		// A sent ETag must match the stored one; an empty ETag overwrites.
-		if p.Etag != "" && p.Etag != ps.Policy.Etag {
-			return nil, fmt.Errorf("%w: got %q, want %q", ErrStaleEtag, p.Etag, ps.Policy.Etag)
+		if p.GetEtag() != "" && p.GetEtag() != ps.Policy.GetEtag() {
+			return nil, fmt.Errorf("%w: got %q, want %q", ErrStaleEtag, p.GetEtag(), ps.Policy.GetEtag())
 		}
 	} else {
 		if !allowMissing {
 			return nil, ErrUnknownPolicy
 		}
-		if p.Etag != "" {
+		if p.GetEtag() != "" {
 			// An ETag was sent for a policy that does not exist.
 			return nil, ErrUnknownEtag
 		}
@@ -202,9 +203,9 @@ func (s *MemoryStore) GetWorkload(id *pb.PolicyId) (*pb.Workload, bool) {
 	if !ok || ps.Policy == nil {
 		return nil, false
 	}
-	workload := &pb.Workload{Pods: make([]*pb.PodState, 0, len(ps.Workload))}
+	workload := pb.Workload_builder{Pods: make([]*pb.PodState, 0, len(ps.Workload))}.Build()
 	for _, name := range slices.Sorted(maps.Keys(ps.Workload)) {
-		workload.Pods = append(workload.Pods, proto.Clone(ps.Workload[name]).(*pb.PodState))
+		workload.SetPods(append(workload.GetPods(), proto.Clone(ps.Workload[name]).(*pb.PodState)))
 	}
 	return workload, true
 }
@@ -213,15 +214,15 @@ func (s *MemoryStore) UpdateWorkload(req *pb.UpdateWorkloadRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := newPolicyID(req.Id)
+	key := newPolicyID(req.GetId())
 	ps, ok := s.state[key]
 	if !ok || ps.Policy == nil {
 		return fmt.Errorf("policy not found")
 	}
 
 	newWorkload := make(map[string]*pb.PodState)
-	for _, p := range req.Workload.Pods {
-		newWorkload[p.Name] = p
+	for _, p := range req.GetWorkload().GetPods() {
+		newWorkload[p.GetName()] = p
 	}
 	ps.Workload = newWorkload
 	return nil
@@ -231,14 +232,14 @@ func (s *MemoryStore) AddBatch(req *pb.IngestMetricsRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, pBatch := range req.Policies {
-		key := policyID{cluster: req.ClusterName, ns: pBatch.Namespace, name: pBatch.Name}
+	for _, pBatch := range req.GetPolicies() {
+		key := policyID{cluster: req.GetClusterName(), ns: pBatch.GetNamespace(), name: pBatch.GetName()}
 		ps, ok := s.state[key]
 		if !ok || ps.Policy == nil {
 			return fmt.Errorf("policy not found: %s", key)
 		}
 
-		if err := ps.Metrics.IngestMetrics(ps.Policy, pBatch.Batches, req.GetTimestamp().AsTime()); err != nil {
+		if err := ps.Metrics.IngestMetrics(ps.Policy, pBatch.GetBatches(), req.GetTimestamp().AsTime()); err != nil {
 			return err
 		}
 	}
@@ -249,29 +250,29 @@ func (s *MemoryStore) UpdateRecommenderState(req *pb.UpdateRecommenderStateReque
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := newPolicyID(req.Id)
+	key := newPolicyID(req.GetId())
 	ps, ok := s.state[key]
 	if !ok || ps.Policy == nil {
 		return fmt.Errorf("policy not found")
 	}
 
-	if req.Recommendation == nil {
-		delete(ps.RecommenderStatuses, req.RecommenderName)
+	if !req.HasRecommendation() {
+		delete(ps.RecommenderStatuses, req.GetRecommenderName())
 		return nil
 	}
 
 	// Validate that the recommender exists in the current policy
 	var def *pb.RecommenderDefinition
 	isActivation := false
-	for _, r := range ps.Policy.Scaling {
-		if r.Name == req.RecommenderName {
+	for _, r := range ps.Policy.GetScaling() {
+		if r.GetName() == req.GetRecommenderName() {
 			def = r
 			break
 		}
 	}
 	if def == nil {
-		for _, r := range ps.Policy.Activation {
-			if r.Name == req.RecommenderName {
+		for _, r := range ps.Policy.GetActivation() {
+			if r.GetName() == req.GetRecommenderName() {
 				def = r
 				isActivation = true
 				break
@@ -279,11 +280,11 @@ func (s *MemoryStore) UpdateRecommenderState(req *pb.UpdateRecommenderStateReque
 		}
 	}
 	if def == nil {
-		return fmt.Errorf("recommender %s not defined in policy", req.RecommenderName)
+		return fmt.Errorf("recommender %s not defined in policy", req.GetRecommenderName())
 	}
 
 	// Basic validation of recommendation
-	if req.Recommendation.Replicas != nil && *req.Recommendation.Replicas < 0 {
+	if req.GetRecommendation().HasReplicas() && req.GetRecommendation().GetReplicas() < 0 {
 		return fmt.Errorf("desired replicas cannot be negative")
 	}
 
@@ -293,22 +294,22 @@ func (s *MemoryStore) UpdateRecommenderState(req *pb.UpdateRecommenderStateReque
 	}
 
 	// Create enriched status
-	status := &pb.RecommenderStatus{
-		Name:              req.RecommenderName,
-		Type:              def.Type,
-		Phase:             phase,
-		Mode:              def.Mode,
-		Replicas:          req.Recommendation.Replicas,
-		IsActive:          req.Recommendation.IsActive,
-		Message:           req.Recommendation.Message,
+	status := pb.RecommenderStatus_builder{
+		Name:              proto.String(req.GetRecommenderName()),
+		Type:              proto.String(def.GetType()),
+		Phase:             proto.String(phase),
+		Mode:              proto.String(def.GetMode()),
+		Replicas:          proto.ValueOrNil(req.GetRecommendation().HasReplicas(), req.GetRecommendation().GetReplicas),
+		IsActive:          proto.Bool(req.GetRecommendation().GetIsActive()),
+		Message:           proto.String(req.GetRecommendation().GetMessage()),
 		LastUpdated:       timestamppb.New(s.clock.Now()),
-		WorkloadResources: req.Recommendation.WorkloadResources,
-		PodResources:      req.Recommendation.PodContainerResources,
-	}
+		WorkloadResources: req.GetRecommendation().GetWorkloadResources(),
+		PodResources:      req.GetRecommendation().GetPodContainerResources(),
+	}.Build()
 
 	// Wait, I need to check how to correctly create google.protobuf.Timestamp
 	// I'll check imports and existing usage.
-	return s.updateRecommenderStatus(ps, req.RecommenderName, status)
+	return s.updateRecommenderStatus(ps, req.GetRecommenderName(), status)
 }
 
 func (s *MemoryStore) updateRecommenderStatus(ps *PolicyState, name string, status *pb.RecommenderStatus) error {
@@ -330,26 +331,26 @@ func (s *MemoryStore) GetRecommendation(id *pb.PolicyId) (*pb.GetRecommendationR
 
 	var metricStatuses []*pb.MetricStatus
 	if ps.ControlMetrics != nil {
-		for _, def := range ps.Policy.Metrics {
-			metricStatuses = append(metricStatuses, metricStatus(def.Name, "", ps.ControlMetrics))
+		for _, def := range ps.Policy.GetMetrics() {
+			metricStatuses = append(metricStatuses, metricStatus(def.GetName(), "", ps.ControlMetrics))
 		}
 	}
 	// Metrics owned by recommenders are listed as <recommender>/<metric>.
-	for _, owner := range slices.Sorted(maps.Keys(ps.Policy.RecommenderMetrics)) {
+	for _, owner := range slices.Sorted(maps.Keys(ps.Policy.GetRecommenderMetrics())) {
 		cm, ok := ps.RecommenderControlMetrics[owner]
 		if !ok || cm == nil {
 			continue
 		}
-		for _, def := range ps.Policy.RecommenderMetrics[owner].GetDefinitions() {
-			metricStatuses = append(metricStatuses, metricStatus(def.Name, owner, cm))
+		for _, def := range ps.Policy.GetRecommenderMetrics()[owner].GetDefinitions() {
+			metricStatuses = append(metricStatuses, metricStatus(def.GetName(), owner, cm))
 		}
 	}
 
-	return &pb.GetRecommendationResponse{
+	return pb.GetRecommendationResponse_builder{
 		Recommendation: ps.Recommendation,
 		MetricStatuses: metricStatuses,
 		Explanation:    ps.Explanation,
-	}, true
+	}.Build(), true
 }
 
 // metricStatus returns the status of the metric name in cm, owned by owner
@@ -360,36 +361,36 @@ func metricStatus(name, owner string, cm *pb.ControlMetrics) *pb.MetricStatus {
 	if owner != "" {
 		displayName = owner + "/" + name
 	}
-	status := &pb.MetricStatus{
-		Name:      displayName,
-		Timestamp: cm.Timestamp,
-	}
-	if val, ok := cm.Values[name]; ok {
-		status.Value = val
+	status := pb.MetricStatus_builder{
+		Name:      proto.String(displayName),
+		Timestamp: cm.GetTimestamp(),
+	}.Build()
+	if val, ok := cm.GetValues()[name]; ok {
+		status.SetValue(val)
 		return status
 	}
 	var sum float64
 	var count int
-	for _, pcm := range cm.PodContainerMetrics {
+	for _, pcm := range cm.GetPodContainerMetrics() {
 		for _, c := range pcm.GetContainerMetrics() {
-			if v, ok := c.Values[name]; ok {
+			if v, ok := c.GetValues()[name]; ok {
 				sum += v
 				count++
 			}
 		}
 	}
 	if count == 0 {
-		for _, pm := range cm.PodMetrics {
-			if v, ok := pm.Values[name]; ok {
+		for _, pm := range cm.GetPodMetrics() {
+			if v, ok := pm.GetValues()[name]; ok {
 				sum += v
 				count++
 			}
 		}
 	}
 	if count > 0 {
-		status.Value = sum / float64(count)
+		status.SetValue(sum / float64(count))
 	} else {
-		status.Error = "No data available"
+		status.SetError("No data available")
 	}
 	return status
 }
@@ -415,13 +416,13 @@ func (s *MemoryStore) GetControlMetrics(id *pb.PolicyId, recommenderName string)
 	}
 	// The recommender owns no metric: report the workload state only.
 	// ContainerMetrics is left unset, matching Calculate.
-	return &pb.ControlMetrics{
+	return pb.ControlMetrics_builder{
 		Values:              make(map[string]float64),
 		PodMetrics:          make(map[string]*pb.MetricValues),
 		PodContainerMetrics: make(map[string]*pb.ContainerMetrics),
-		ReadyReplicas:       ps.ControlMetrics.ReadyReplicas,
-		Timestamp:           ps.ControlMetrics.Timestamp,
-	}, true
+		ReadyReplicas:       proto.Int32(ps.ControlMetrics.GetReadyReplicas()),
+		Timestamp:           ps.ControlMetrics.GetTimestamp(),
+	}.Build(), true
 }
 
 func (s *MemoryStore) CalculateAll() {
@@ -437,15 +438,15 @@ func (s *MemoryStore) CalculateAll() {
 		}
 
 		workload := ps.Workload
-		ps.ControlMetrics = ps.Metrics.Calculate(policy, policy.Metrics, workload, now)
+		ps.ControlMetrics = ps.Metrics.Calculate(policy, policy.GetMetrics(), workload, now)
 
 		// Metrics owned by a recommender are aggregated the same way, but kept
 		// in a snapshot of their own so that they are only reported to their
 		// owner.
 		ps.RecommenderControlMetrics = nil
-		if len(policy.RecommenderMetrics) > 0 {
-			ps.RecommenderControlMetrics = make(map[string]*pb.ControlMetrics, len(policy.RecommenderMetrics))
-			for name, defs := range policy.RecommenderMetrics {
+		if len(policy.GetRecommenderMetrics()) > 0 {
+			ps.RecommenderControlMetrics = make(map[string]*pb.ControlMetrics, len(policy.GetRecommenderMetrics()))
+			for name, defs := range policy.GetRecommenderMetrics() {
 				ps.RecommenderControlMetrics[name] = ps.Metrics.Calculate(policy, defs.GetDefinitions(), workload, now)
 			}
 		}
@@ -468,9 +469,9 @@ func (s *MemoryStore) cleanupOrphanedRecommenderStatuses(ps *PolicyState) {
 // running a removed recommender never sees it again.
 func dropOrphanedRecommenderMetrics(p *pb.Policy) {
 	names := recommenderNames(p)
-	for rName := range p.RecommenderMetrics {
+	for rName := range p.GetRecommenderMetrics() {
 		if !names[rName] {
-			delete(p.RecommenderMetrics, rName)
+			delete(p.GetRecommenderMetrics(), rName)
 		}
 	}
 }
@@ -478,12 +479,12 @@ func dropOrphanedRecommenderMetrics(p *pb.Policy) {
 // recommenderNames returns the names of the Scaling and Activation
 // recommenders of the policy.
 func recommenderNames(p *pb.Policy) map[string]bool {
-	names := make(map[string]bool, len(p.Scaling)+len(p.Activation))
-	for _, r := range p.Scaling {
-		names[r.Name] = true
+	names := make(map[string]bool, len(p.GetScaling())+len(p.GetActivation()))
+	for _, r := range p.GetScaling() {
+		names[r.GetName()] = true
 	}
-	for _, r := range p.Activation {
-		names[r.Name] = true
+	for _, r := range p.GetActivation() {
+		names[r.GetName()] = true
 	}
 	return names
 }
@@ -493,16 +494,16 @@ func (s *MemoryStore) processRecommendations(ps *PolicyState, now time.Time) {
 	isActive := false
 	var activationStatuses []*pb.RecommenderStatus
 
-	if len(policy.Activation) == 0 {
+	if len(policy.GetActivation()) == 0 {
 		isActive = true
 	} else {
-		for _, recDef := range policy.Activation {
-			if d, ok := ps.RecommenderStatuses[recDef.Name]; ok {
+		for _, recDef := range policy.GetActivation() {
+			if d, ok := ps.RecommenderStatuses[recDef.GetName()]; ok {
 				activationStatuses = append(activationStatuses, d)
-				if recDef.Mode == "DryRun" {
+				if recDef.GetMode() == "DryRun" {
 					continue
 				}
-				if d.IsActive {
+				if d.GetIsActive() {
 					isActive = true
 				}
 			}
@@ -514,8 +515,8 @@ func (s *MemoryStore) processRecommendations(ps *PolicyState, now time.Time) {
 	}
 
 	window := 5 * time.Minute
-	for _, recDef := range policy.Activation {
-		if val, ok := recDef.Params["window"]; ok {
+	for _, recDef := range policy.GetActivation() {
+		if val, ok := recDef.GetParams()["window"]; ok {
 			if w, err := strconv.ParseInt(val, 10, 64); err == nil {
 				window = time.Duration(w) * time.Second
 			}
@@ -542,18 +543,18 @@ func (s *MemoryStore) processRecommendations(ps *PolicyState, now time.Time) {
 		return
 	}
 
-	ps.Recommendation = &pb.Recommendation{
+	ps.Recommendation = pb.Recommendation_builder{
 		Replicas:              replicas,
 		WorkloadResources:     workloadRes,
 		PodContainerResources: podRes,
-	}
+	}.Build()
 	ps.Explanation = append(activationStatuses, scalingStatuses...)
 
-	if policy.Workload != nil {
+	if policy.HasWorkload() {
 		if replicas != nil {
-			metrics.RecordRecommendation(policy.Id.ClusterName, policy.Id.Namespace, policy.Id.Name, policy.Workload.Group, policy.Workload.Version, policy.Workload.Kind, policy.Workload.Name, *replicas)
+			metrics.RecordRecommendation(policy.GetId().GetClusterName(), policy.GetId().GetNamespace(), policy.GetId().GetName(), policy.GetWorkload().GetGroup(), policy.GetWorkload().GetVersion(), policy.GetWorkload().GetKind(), policy.GetWorkload().GetName(), *replicas)
 		}
-		metrics.RecordActive(policy.Id.ClusterName, policy.Id.Namespace, policy.Id.Name, policy.Workload.Group, policy.Workload.Version, policy.Workload.Kind, policy.Workload.Name, isActive)
+		metrics.RecordActive(policy.GetId().GetClusterName(), policy.GetId().GetNamespace(), policy.GetId().GetName(), policy.GetWorkload().GetGroup(), policy.GetWorkload().GetVersion(), policy.GetWorkload().GetKind(), policy.GetWorkload().GetName(), isActive)
 	}
 }
 
@@ -584,48 +585,48 @@ func (s *MemoryStore) calculateArbitratedResources(ps *PolicyState, isActive boo
 	podMap := make(map[string]*pb.PodContainerResource)
 	podKeys := []string{} // Maintain insertion order for deterministic outputs
 
-	for _, recDef := range ps.Policy.Scaling {
-		d, ok := ps.RecommenderStatuses[recDef.Name]
-		if !ok || recDef.Mode == "DryRun" || !d.IsActive {
+	for _, recDef := range ps.Policy.GetScaling() {
+		d, ok := ps.RecommenderStatuses[recDef.GetName()]
+		if !ok || recDef.GetMode() == "DryRun" || !d.GetIsActive() {
 			continue
 		}
 
-		for _, wr := range d.WorkloadResources {
+		for _, wr := range d.GetWorkloadResources() {
 			if wr == nil {
 				continue
 			}
-			cName := wr.ContainerName
+			cName := wr.GetContainerName()
 			existing, ok := workloadMap[cName]
 			if !ok {
 				newReqs := make(map[string]string)
 				newLims := make(map[string]string)
-				for k, v := range wr.Requests {
+				for k, v := range wr.GetRequests() {
 					newReqs[k] = v
 				}
-				for k, v := range wr.Limits {
+				for k, v := range wr.GetLimits() {
 					newLims[k] = v
 				}
-				workloadMap[cName] = &pb.ContainerResource{
-					ContainerName: cName,
+				workloadMap[cName] = pb.ContainerResource_builder{
+					ContainerName: proto.String(cName),
 					Requests:      newReqs,
 					Limits:        newLims,
-				}
+				}.Build()
 				workloadKeys = append(workloadKeys, cName)
 			} else {
-				arbitrateResourceMap(existing.Requests, wr.Requests)
-				arbitrateResourceMap(existing.Limits, wr.Limits)
+				arbitrateResourceMap(existing.GetRequests(), wr.GetRequests())
+				arbitrateResourceMap(existing.GetLimits(), wr.GetLimits())
 			}
 		}
 
-		for _, pr := range d.PodResources {
+		for _, pr := range d.GetPodResources() {
 			cName := ""
 			var reqs, lims map[string]string
-			if pr.ContainerResources != nil {
-				cName = pr.ContainerResources.ContainerName
-				reqs = pr.ContainerResources.Requests
-				lims = pr.ContainerResources.Limits
+			if pr.HasContainerResources() {
+				cName = pr.GetContainerResources().GetContainerName()
+				reqs = pr.GetContainerResources().GetRequests()
+				lims = pr.GetContainerResources().GetLimits()
 			}
-			key := fmt.Sprintf("%s|%s", pr.PodName, cName)
+			key := fmt.Sprintf("%s|%s", pr.GetPodName(), cName)
 			existing, ok := podMap[key]
 			if !ok {
 				newReqs := make(map[string]string)
@@ -636,19 +637,19 @@ func (s *MemoryStore) calculateArbitratedResources(ps *PolicyState, isActive boo
 				for k, v := range lims {
 					newLims[k] = v
 				}
-				podMap[key] = &pb.PodContainerResource{
-					PodName: pr.PodName,
-					ContainerResources: &pb.ContainerResource{
-						ContainerName: cName,
+				podMap[key] = pb.PodContainerResource_builder{
+					PodName: proto.String(pr.GetPodName()),
+					ContainerResources: pb.ContainerResource_builder{
+						ContainerName: proto.String(cName),
 						Requests:      newReqs,
 						Limits:        newLims,
-					},
-				}
+					}.Build(),
+				}.Build()
 				podKeys = append(podKeys, key)
 			} else {
-				if existing.ContainerResources != nil {
-					arbitrateResourceMap(existing.ContainerResources.Requests, reqs)
-					arbitrateResourceMap(existing.ContainerResources.Limits, lims)
+				if existing.HasContainerResources() {
+					arbitrateResourceMap(existing.GetContainerResources().GetRequests(), reqs)
+					arbitrateResourceMap(existing.GetContainerResources().GetLimits(), lims)
 				}
 			}
 		}
@@ -696,15 +697,15 @@ func (s *MemoryStore) calculateTargetReplicas(ps *PolicyState, isActive bool) (*
 	var targetReplicas *int32
 	var recommenderStatuses []*pb.RecommenderStatus
 
-	for _, recDef := range ps.Policy.Scaling {
-		d, ok := ps.RecommenderStatuses[recDef.Name]
+	for _, recDef := range ps.Policy.GetScaling() {
+		d, ok := ps.RecommenderStatuses[recDef.GetName()]
 		if !ok {
 			continue
 		}
 
 		// If multiple (non-dry-run) recommendations exist, take the highest.
-		if recDef.Mode != "DryRun" && d.IsActive && d.Replicas != nil && (targetReplicas == nil || *d.Replicas >= *targetReplicas) {
-			r := *d.Replicas
+		if recDef.GetMode() != "DryRun" && d.GetIsActive() && d.HasReplicas() && (targetReplicas == nil || d.GetReplicas() >= *targetReplicas) {
+			r := d.GetReplicas()
 			targetReplicas = &r
 		}
 
@@ -715,10 +716,10 @@ func (s *MemoryStore) calculateTargetReplicas(ps *PolicyState, isActive bool) (*
 		return nil, recommenderStatuses
 	}
 
-	if ps.Policy.MaxReplicas > 0 {
-		*targetReplicas = min(*targetReplicas, ps.Policy.MaxReplicas)
+	if ps.Policy.GetMaxReplicas() > 0 {
+		*targetReplicas = min(*targetReplicas, ps.Policy.GetMaxReplicas())
 	}
-	*targetReplicas = max(*targetReplicas, ps.Policy.MinReplicas)
+	*targetReplicas = max(*targetReplicas, ps.Policy.GetMinReplicas())
 	return targetReplicas, recommenderStatuses
 }
 

@@ -1,4 +1,4 @@
-syntax = "proto3";
+edition = "2024";
 
 package xas.v1alpha;
 
@@ -376,7 +376,7 @@ message PodContainerResource {
 // An autoscaling recommendation emitted by a recommender.
 message Recommendation {
   // Recommendation for number of replicas.
-  optional int32 replicas = 1;
+  int32 replicas = 1;
 
   // If false, this recommender recommends scaling to zero (if Activation type).
   bool is_active = 2;
@@ -420,7 +420,7 @@ message RecommenderStatus {
   // The type of the recommender (e.g. "Linear", "Cron").
   string type = 8;
   // Replicas recommendation for the workload.
-  optional int32 replicas = 1;
+  int32 replicas = 1;
   // Workload-level resource recommendations (one per container).
   repeated ContainerResource workload_resources = 9;
   // Pod-level resource recommendations.

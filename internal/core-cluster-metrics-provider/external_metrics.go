@@ -4,15 +4,17 @@ import (
 	"log/slog"
 	"time"
 
-	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
-	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/pkg/apis/xas/v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/labels"
+
+	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
+	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/pkg/apis/xas/v1"
 )
 
 func (p *CoreClusterMetricsProvider) processExternalMetric(namespace string, m *pb.MetricDefinition, class *xasv1.MetricProviderClass) []*pb.MetricBatch {
 	getParam := func(key string) string {
-		if val, ok := m.Params[key]; ok {
+		if val, ok := m.GetParams()[key]; ok {
 			return val
 		}
 		if class != nil {
@@ -25,7 +27,7 @@ func (p *CoreClusterMetricsProvider) processExternalMetric(namespace string, m *
 
 	metricName := getParam("metric")
 	if metricName == "" {
-		slog.Warn("Missing 'metric' parameter for external metric", "policyMetric", m.Name)
+		slog.Warn("Missing 'metric' parameter for external metric", "policyMetric", m.GetName())
 		return nil
 	}
 
@@ -35,7 +37,7 @@ func (p *CoreClusterMetricsProvider) processExternalMetric(namespace string, m *
 	if selectorStr != "" {
 		selector, err = labels.Parse(selectorStr)
 		if err != nil {
-			slog.Error("Failed to parse selector for external metric", "metric", m.Name, "selector", selectorStr, "error", err)
+			slog.Error("Failed to parse selector for external metric", "metric", m.GetName(), "selector", selectorStr, "error", err)
 			return nil
 		}
 	} else {
@@ -61,20 +63,20 @@ func (p *CoreClusterMetricsProvider) processExternalMetric(namespace string, m *
 			ts = time.Now().Unix()
 		}
 
-		samples = append(samples, &pb.MetricSample{
-			Name:            m.Name,
-			RecommenderName: m.RecommenderName,
+		samples = append(samples, pb.MetricSample_builder{
+			Name:            proto.String(m.GetName()),
+			RecommenderName: proto.String(m.GetRecommenderName()),
 			Labels:          item.MetricLabels,
-			Value:           val,
+			Value:           proto.Float64(val),
 			Timestamp:       timestamppb.New(time.Unix(ts, 0)),
-		})
+		}.Build())
 	}
 
 	if len(samples) > 0 {
-		return []*pb.MetricBatch{{
-			PodName: "", // Global / External metric scope
+		return []*pb.MetricBatch{pb.MetricBatch_builder{
+			PodName: proto.String(""), // Global / External metric scope
 			Samples: samples,
-		}}
+		}.Build()}
 	}
 
 	return nil

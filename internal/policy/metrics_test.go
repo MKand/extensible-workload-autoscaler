@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
@@ -19,30 +20,30 @@ func TestMetrics(t *testing.T) {
 	}{
 		{
 			name: "Policy-wide metrics only",
-			policy: &pb.Policy{
-				Metrics: []*pb.MetricDefinition{{Name: "cpu"}, {Name: "rps"}},
-			},
-			want: []*pb.MetricDefinition{{Name: "cpu"}, {Name: "rps"}},
+			policy: pb.Policy_builder{
+				Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu")}.Build(), pb.MetricDefinition_builder{Name: proto.String("rps")}.Build()},
+			}.Build(),
+			want: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu")}.Build(), pb.MetricDefinition_builder{Name: proto.String("rps")}.Build()},
 		},
 		{
 			name: "Policy-wide and recommender-owned metrics",
-			policy: &pb.Policy{
-				Metrics: []*pb.MetricDefinition{{Name: "rps"}},
+			policy: pb.Policy_builder{
+				Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("rps")}.Build()},
 				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", RecommenderName: "vpa"},
-						{Name: "memory", RecommenderName: "vpa"},
-					}},
-					"hpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", RecommenderName: "hpa"},
-					}},
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa")}.Build(),
+						pb.MetricDefinition_builder{Name: proto.String("memory"), RecommenderName: proto.String("vpa")}.Build(),
+					}}.Build(),
+					"hpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("hpa")}.Build(),
+					}}.Build(),
 				},
-			},
+			}.Build(),
 			want: []*pb.MetricDefinition{
-				{Name: "rps"},
-				{Name: "cpu", RecommenderName: "hpa"},
-				{Name: "cpu", RecommenderName: "vpa"},
-				{Name: "memory", RecommenderName: "vpa"},
+				pb.MetricDefinition_builder{Name: proto.String("rps")}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("hpa")}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa")}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("memory"), RecommenderName: proto.String("vpa")}.Build(),
 			},
 		},
 	}
@@ -59,7 +60,7 @@ func TestMetrics(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := policy.MetricDefinitions(tc.policy)
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), sortMetrics); diff != "" {
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), sortMetrics); diff != "" {
 				t.Errorf("Metrics() mismatch (-want +got):\n%s", diff)
 			}
 		})

@@ -35,9 +35,9 @@ func (c *fakeXASServerClient) UpdatePolicy(_ context.Context, req *pb.UpdatePoli
 	if c.err != nil {
 		return nil, c.err
 	}
-	resp := proto.Clone(req.Policy).(*pb.Policy)
+	resp := proto.Clone(req.GetPolicy()).(*pb.Policy)
 	if c.etag != "" {
-		resp.Etag = c.etag
+		resp.SetEtag(c.etag)
 	}
 	return resp, nil
 }
@@ -57,10 +57,10 @@ func (r *owningRecommender) Recommend(*pb.RecommenderDefinition, *pb.ControlMetr
 
 func (r *owningRecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetrics []*pb.MetricDefinition) ([]*pb.MetricDefinition, error) {
 	r.gotPolicyMetrics = policyMetrics
-	if err := r.errs[def.Name]; err != nil {
+	if err := r.errs[def.GetName()]; err != nil {
 		return nil, err
 	}
-	return r.metrics[def.Name], nil
+	return r.metrics[def.GetName()], nil
 }
 
 // plainRecommender does not own any metric.
@@ -92,23 +92,23 @@ func newTestEngine(t *testing.T, client pb.XASServerClient, classes map[string]s
 }
 
 func cpuMetric(owner string) *pb.MetricDefinition {
-	return &pb.MetricDefinition{Name: "cpu", RecommenderName: owner, Gauge: &pb.Gauge{Aggregation: "Max"}}
+	return pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String(owner), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build()
 }
 
 func memoryMetric(owner string) *pb.MetricDefinition {
-	return &pb.MetricDefinition{Name: "memory", RecommenderName: owner, Gauge: &pb.Gauge{Aggregation: "Max"}}
+	return pb.MetricDefinition_builder{Name: proto.String("memory"), RecommenderName: proto.String(owner), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build()
 }
 
 func TestSyncRecommenderMetrics(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	// "vpa" is backed by a recommender that owns metrics, "hpa" by one that does
 	// not, and "custom" by a class this engine does not know about.
 	classes := map[string]string{"owning-class": "Owning", "plain-class": "Plain", "third-party-class": "ThirdParty"}
 	scaling := []*pb.RecommenderDefinition{
-		{Name: "vpa", Recommender: "owning-class"},
-		{Name: "hpa", Recommender: "plain-class"},
-		{Name: "custom", Recommender: "third-party-class"},
-		{Name: "ghost", Recommender: "missing-class"},
+		pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("owning-class")}.Build(),
+		pb.RecommenderDefinition_builder{Name: proto.String("hpa"), Recommender: proto.String("plain-class")}.Build(),
+		pb.RecommenderDefinition_builder{Name: proto.String("custom"), Recommender: proto.String("third-party-class")}.Build(),
+		pb.RecommenderDefinition_builder{Name: proto.String("ghost"), Recommender: proto.String("missing-class")}.Build(),
 	}
 
 	tests := []struct {
@@ -125,133 +125,133 @@ func TestSyncRecommenderMetrics(t *testing.T) {
 		{
 			name:   "Registers the metrics of an owner on a policy that has none",
 			owned:  map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa")}},
-			policy: &pb.Policy{Id: id, Scaling: scaling},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-			}},
+			policy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:  "Updates the metrics already registered",
 			owned: map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa"), memoryMetric("vpa")}},
-			policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-			}},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-			}},
+			policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+			}}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:  "No update when the metrics are already registered",
 			owned: map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa")}},
-			policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-			}},
+			policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+			}}.Build(),
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:       "No update when no recommender owns metrics",
 			owned:      nil,
-			policy:     &pb.Policy{Id: id, Scaling: scaling},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling},
+			policy:     pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
 		},
 		{
 			name:  "Entries owned by other writers are left untouched",
 			owned: map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa")}},
-			policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+			policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
 				// Registered by another binary: sent back unchanged.
-				"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-			}},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa":    {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-					"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa":    {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-				"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-			}},
+				"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+			}}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa":    pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+					"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa":    pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+				"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:  "The entry of an owner that no longer needs metrics is deleted",
 			owned: nil,
-			policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa":    {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-				"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-			}},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
-			}},
+			policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa":    pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+				"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+			}}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:  "An empty entry left by an earlier version is deleted",
 			owned: nil,
-			policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+			policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
 				"vpa": {},
-			}},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling},
+			}}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
 		},
 		{
 			name: "Stamps the owner on the returned metrics",
 			owned: map[string][]*pb.MetricDefinition{"vpa": {
-				{Name: "cpu", Gauge: &pb.Gauge{Aggregation: "Max"}},
-				{Name: "memory", RecommenderName: "someone-else", Gauge: &pb.Gauge{Aggregation: "Max"}},
+				pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("memory"), RecommenderName: proto.String("someone-else"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build(),
 			}},
-			policy: &pb.Policy{Id: id, Scaling: scaling},
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-			}},
+			policy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:       "Sends the listed ETag and returns the policy with the new one",
 			owned:      map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa")}},
-			policy:     &pb.Policy{Id: id, Scaling: scaling, Etag: "listed"},
+			policy:     pb.Policy_builder{Id: id, Scaling: scaling, Etag: proto.String("listed")}.Build(),
 			serverEtag: "after-write",
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, Etag: "listed", RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling, Etag: "after-write", RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-			}},
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, Etag: proto.String("listed"), RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling, Etag: proto.String("after-write"), RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+			}}.Build(),
 		},
 		{
 			name:      "A failed update leaves the policy alone",
 			owned:     map[string][]*pb.MetricDefinition{"vpa": {cpuMetric("vpa")}},
-			policy:    &pb.Policy{Id: id, Scaling: scaling},
+			policy:    pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
 			clientErr: errors.New("server unavailable"),
-			wantRequests: []*pb.UpdatePolicyRequest{{
-				Policy: &pb.Policy{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}},
-				}},
-			}},
-			wantPolicy: &pb.Policy{Id: id, Scaling: scaling},
+			wantRequests: []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+				Policy: pb.Policy_builder{Id: id, Scaling: scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa")}}.Build(),
+				}}.Build(),
+			}.Build()},
+			wantPolicy: pb.Policy_builder{Id: id, Scaling: scaling}.Build(),
 		},
 	}
 
@@ -265,10 +265,10 @@ func TestSyncRecommenderMetrics(t *testing.T) {
 
 			got, _ := e.syncRecommenderMetrics(tc.policy)
 
-			if diff := cmp.Diff(tc.wantRequests, client.requests, protocmp.Transform(), cmpopts.EquateEmpty()); diff != "" {
+			if diff := cmp.Diff(tc.wantRequests, client.requests, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("UpdatePolicy requests mismatch (-want +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(tc.wantPolicy, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantPolicy, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("syncRecommenderMetrics() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -279,7 +279,7 @@ func TestSyncRecommenderMetrics(t *testing.T) {
 // recommender's metrics changed, the entries of the other recommenders the
 // engine manages are sent back as they were, not dropped or rewritten.
 func TestSyncRecommenderMetricsKeepsUpToDateEntries(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	client := &fakeXASServerClient{}
 	e := newTestEngine(t, client,
 		map[string]string{"owning-class": "Owning"},
@@ -289,35 +289,35 @@ func TestSyncRecommenderMetricsKeepsUpToDateEntries(t *testing.T) {
 		}}},
 	)
 
-	pol := &pb.Policy{
+	pol := pb.Policy_builder{
 		Id: id,
 		Scaling: []*pb.RecommenderDefinition{
-			{Name: "vpa", Recommender: "owning-class"},
-			{Name: "vpa2", Recommender: "owning-class"},
+			pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("owning-class")}.Build(),
+			pb.RecommenderDefinition_builder{Name: proto.String("vpa2"), Recommender: proto.String("owning-class")}.Build(),
 		},
 		RecommenderMetrics: map[string]*pb.MetricDefinitionList{
 			// Already up to date.
-			"vpa2": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}},
+			"vpa2": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}}.Build(),
 		},
-	}
+	}.Build()
 
 	got, _ := e.syncRecommenderMetrics(pol)
 
-	wantRequests := []*pb.UpdatePolicyRequest{{
-		Policy: &pb.Policy{Id: id, Scaling: pol.Scaling, RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-			"vpa":  {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-			"vpa2": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}},
-		}},
-	}}
-	if diff := cmp.Diff(wantRequests, client.requests, protocmp.Transform()); diff != "" {
+	wantRequests := []*pb.UpdatePolicyRequest{pb.UpdatePolicyRequest_builder{
+		Policy: pb.Policy_builder{Id: id, Scaling: pol.GetScaling(), RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+			"vpa":  pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+			"vpa2": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}}.Build(),
+		}}.Build(),
+	}.Build()}
+	if diff := cmp.Diff(wantRequests, client.requests, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("UpdatePolicy requests mismatch (-want +got):\n%s", diff)
 	}
 
 	wantMetrics := map[string]*pb.MetricDefinitionList{
-		"vpa":  {Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}},
-		"vpa2": {Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}},
+		"vpa":  pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa"), memoryMetric("vpa")}}.Build(),
+		"vpa2": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("vpa2")}}.Build(),
 	}
-	if diff := cmp.Diff(wantMetrics, got.RecommenderMetrics, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(wantMetrics, got.GetRecommenderMetrics(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("RecommenderMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -326,7 +326,7 @@ func TestSyncRecommenderMetricsKeepsUpToDateEntries(t *testing.T) {
 // returned is not modified in place: the caller keeps using it if the update
 // fails.
 func TestSyncRecommenderMetricsDoesNotMutateInput(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	client := &fakeXASServerClient{}
 	e := newTestEngine(t, client,
 		map[string]string{"owning-class": "Owning"},
@@ -335,18 +335,18 @@ func TestSyncRecommenderMetricsDoesNotMutateInput(t *testing.T) {
 		}}},
 	)
 
-	pol := &pb.Policy{
+	pol := pb.Policy_builder{
 		Id:      id,
-		Scaling: []*pb.RecommenderDefinition{{Name: "vpa", Recommender: "owning-class"}},
+		Scaling: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("owning-class")}.Build()},
 		RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-			"custom": {Definitions: []*pb.MetricDefinition{cpuMetric("custom")}},
+			"custom": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("custom")}}.Build(),
 		},
-	}
+	}.Build()
 	before := proto.Clone(pol).(*pb.Policy)
 
 	e.syncRecommenderMetrics(pol)
 
-	if diff := cmp.Diff(before, pol, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(before, pol, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("syncRecommenderMetrics() modified its input (-before +after):\n%s", diff)
 	}
 }
@@ -355,7 +355,7 @@ func TestSyncRecommenderMetricsDoesNotMutateInput(t *testing.T) {
 // activation phase can own metrics too, matching the Server garbage
 // collection, which keeps the metrics of both phases.
 func TestSyncRecommenderMetricsActivation(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	client := &fakeXASServerClient{}
 	e := newTestEngine(t, client,
 		map[string]string{"owning-class": "Owning"},
@@ -363,12 +363,12 @@ func TestSyncRecommenderMetricsActivation(t *testing.T) {
 			"gate": {cpuMetric("gate")},
 		}}},
 	)
-	pol := &pb.Policy{Id: id, Activation: []*pb.RecommenderDefinition{{Name: "gate", Recommender: "owning-class"}}}
+	pol := pb.Policy_builder{Id: id, Activation: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("gate"), Recommender: proto.String("owning-class")}.Build()}}.Build()
 
 	got, _ := e.syncRecommenderMetrics(pol)
 
-	want := map[string]*pb.MetricDefinitionList{"gate": {Definitions: []*pb.MetricDefinition{cpuMetric("gate")}}}
-	if diff := cmp.Diff(want, got.RecommenderMetrics, protocmp.Transform()); diff != "" {
+	want := map[string]*pb.MetricDefinitionList{"gate": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("gate")}}.Build()}
+	if diff := cmp.Diff(want, got.GetRecommenderMetrics(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("RecommenderMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -376,15 +376,15 @@ func TestSyncRecommenderMetricsActivation(t *testing.T) {
 // TestSyncRecommenderMetricsPassesPolicyMetrics checks that OwnedMetrics gets
 // the policy-wide metrics.
 func TestSyncRecommenderMetricsPassesPolicyMetrics(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	rec := &owningRecommender{}
 	e := newTestEngine(t, &fakeXASServerClient{}, map[string]string{"owning-class": "Owning"}, map[string]Recommender{"Owning": rec})
 	policyMetrics := []*pb.MetricDefinition{cpuMetric("")}
-	pol := &pb.Policy{Id: id, Metrics: policyMetrics, Scaling: []*pb.RecommenderDefinition{{Name: "vpa", Recommender: "owning-class"}}}
+	pol := pb.Policy_builder{Id: id, Metrics: policyMetrics, Scaling: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("owning-class")}.Build()}}.Build()
 
 	e.syncRecommenderMetrics(pol)
 
-	if diff := cmp.Diff(policyMetrics, rec.gotPolicyMetrics, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(policyMetrics, rec.gotPolicyMetrics, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("OwnedMetrics() policy metrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -392,7 +392,7 @@ func TestSyncRecommenderMetricsPassesPolicyMetrics(t *testing.T) {
 // TestSyncRecommenderMetricsConfigError checks that an OwnedMetrics error is
 // returned for its recommender, and that the metrics it owned are dropped.
 func TestSyncRecommenderMetricsConfigError(t *testing.T) {
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 	client := &fakeXASServerClient{}
 	configErr := errors.New("cpu-metric \"gauge\" is not a decaying distribution")
 	e := newTestEngine(t, client,
@@ -402,24 +402,24 @@ func TestSyncRecommenderMetricsConfigError(t *testing.T) {
 			errs:    map[string]error{"bad": configErr},
 		}},
 	)
-	pol := &pb.Policy{
+	pol := pb.Policy_builder{
 		Id: id,
 		Scaling: []*pb.RecommenderDefinition{
-			{Name: "ok", Recommender: "owning-class"},
-			{Name: "bad", Recommender: "owning-class"},
+			pb.RecommenderDefinition_builder{Name: proto.String("ok"), Recommender: proto.String("owning-class")}.Build(),
+			pb.RecommenderDefinition_builder{Name: proto.String("bad"), Recommender: proto.String("owning-class")}.Build(),
 		},
 		RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-			"bad": {Definitions: []*pb.MetricDefinition{cpuMetric("bad")}},
+			"bad": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("bad")}}.Build(),
 		},
-	}
+	}.Build()
 
 	got, errs := e.syncRecommenderMetrics(pol)
 
 	if diff := cmp.Diff(map[string]error{"bad": configErr}, errs, cmpopts.EquateErrors()); diff != "" {
 		t.Errorf("syncRecommenderMetrics() errors mismatch (-want +got):\n%s", diff)
 	}
-	want := map[string]*pb.MetricDefinitionList{"ok": {Definitions: []*pb.MetricDefinition{cpuMetric("ok")}}}
-	if diff := cmp.Diff(want, got.RecommenderMetrics, protocmp.Transform()); diff != "" {
+	want := map[string]*pb.MetricDefinitionList{"ok": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{cpuMetric("ok")}}.Build()}
+	if diff := cmp.Diff(want, got.GetRecommenderMetrics(), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("RecommenderMetrics mismatch (-want +got):\n%s", diff)
 	}
 }

@@ -27,6 +27,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/podutil"
 	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/pkg/apis/xas/v1"
@@ -191,13 +193,13 @@ func (c *Controller) validateReferences(p *xasv1.ScalingPolicy) error {
 
 func (c *Controller) reconcileDelete(namespace, name string) error {
 	slog.Info("Policy deleted in K8s, syncing deletion to Server", "namespace", namespace, "name", name)
-	req := &pb.DeletePolicyRequest{
-		Id: &pb.PolicyId{
-			ClusterName: c.clusterName,
-			Namespace:   namespace,
-			Name:        name,
-		},
-	}
+	req := pb.DeletePolicyRequest_builder{
+		Id: pb.PolicyId_builder{
+			ClusterName: proto.String(c.clusterName),
+			Namespace:   proto.String(namespace),
+			Name:        proto.String(name),
+		}.Build(),
+	}.Build()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -269,25 +271,25 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		return nil
 	}
 
-	if resp.Recommendation == nil {
+	if !resp.HasRecommendation() {
 		slog.Debug("No recommendation available for policy", "policy", policy.Name)
 		return nil
 	}
 
-	rec := resp.Recommendation
+	rec := resp.GetRecommendation()
 	currentReplicas := int32(0)
 	if deployment.Spec.Replicas != nil {
 		currentReplicas = *deployment.Spec.Replicas
 	}
-	slog.Info("Recommendation", "deployment", deploymentName, "replicas", rec.Replicas, "currentReplicas", currentReplicas)
+	slog.Info("Recommendation", "deployment", deploymentName, "replicas", proto.ValueOrNil(rec.HasReplicas(), rec.GetReplicas), "currentReplicas", currentReplicas)
 
 	// 5. Actuate
 	// If there's a horizontal recommendation, and it differs from the deployment's current value, actuate.
-	if rec.Replicas != nil &&
-		(deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != *rec.Replicas) {
-		slog.Info("SCALING", "deployment", deploymentName, "from", currentReplicas, "to", *rec.Replicas)
+	if rec.HasReplicas() &&
+		(deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != rec.GetReplicas()) {
+		slog.Info("SCALING", "deployment", deploymentName, "from", currentReplicas, "to", rec.GetReplicas())
 		deploymentCopy := deployment.DeepCopy()
-		deploymentCopy.Spec.Replicas = rec.Replicas
+		deploymentCopy.Spec.Replicas = proto.Int32(rec.GetReplicas())
 		if _, err := c.kubeclientset.AppsV1().Deployments(policy.Namespace).
 			Update(context.TODO(), deploymentCopy, metav1.UpdateOptions{}); err != nil {
 			return err
@@ -318,31 +320,31 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 	}
 
 	// Actuate Workload Resources via /resize subresource on all matching pods
-	if len(rec.WorkloadResources) > 0 && deployment.Spec.Selector != nil {
+	if len(rec.GetWorkloadResources()) > 0 && deployment.Spec.Selector != nil {
 		selector := labels.Set(deployment.Spec.Selector.MatchLabels).String()
 		pods, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 		if err == nil {
 			for i := range pods.Items {
 				pod := &pods.Items[i]
-				for _, res := range rec.WorkloadResources {
+				for _, res := range rec.GetWorkloadResources() {
 					if res == nil {
 						continue
 					}
-					patchPodResize(pod, res.ContainerName, res.Requests, res.Limits)
+					patchPodResize(pod, res.GetContainerName(), res.GetRequests(), res.GetLimits())
 				}
 			}
 		}
 	}
 
 	// Actuate Pod Resources via /resize subresource
-	for _, pr := range rec.PodContainerResources {
-		if pr == nil || pr.ContainerResources == nil {
+	for _, pr := range rec.GetPodContainerResources() {
+		if pr == nil || !pr.HasContainerResources() {
 			continue
 		}
-		pod, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).Get(context.TODO(), pr.PodName, metav1.GetOptions{})
+		pod, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).Get(context.TODO(), pr.GetPodName(), metav1.GetOptions{})
 		if err == nil {
-			res := pr.ContainerResources
-			patchPodResize(pod, res.ContainerName, res.Requests, res.Limits)
+			res := pr.GetContainerResources()
+			patchPodResize(pod, res.GetContainerName(), res.GetRequests(), res.GetLimits())
 		}
 	}
 
@@ -365,8 +367,8 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 	if deployment.Spec.Replicas != nil {
 		policyCopy.Status.CurrentReplicas = *deployment.Spec.Replicas
 	}
-	if rec.Replicas != nil {
-		policyCopy.Status.DesiredReplicas = *rec.Replicas
+	if rec.HasReplicas() {
+		policyCopy.Status.DesiredReplicas = rec.GetReplicas()
 	} else if deployment.Spec.Replicas != nil {
 		policyCopy.Status.DesiredReplicas = *deployment.Spec.Replicas
 	}
@@ -379,56 +381,56 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		policyCopy.Status.Selector = selector.String()
 	}
 
-	policyCopy.Status.Recommendations = make([]xasv1.RecommendationStatus, len(resp.Explanation))
-	for i, d := range resp.Explanation {
+	policyCopy.Status.Recommendations = make([]xasv1.RecommendationStatus, len(resp.GetExplanation()))
+	for i, d := range resp.GetExplanation() {
 		var wrr []xasv1.ResourceRecommendation
-		for _, wr := range d.WorkloadResources {
+		for _, wr := range d.GetWorkloadResources() {
 			if wr == nil {
 				continue
 			}
 			wrr = append(wrr, xasv1.ResourceRecommendation{
-				ContainerName: wr.ContainerName,
-				Requests:      wr.Requests,
-				Limits:        wr.Limits,
+				ContainerName: wr.GetContainerName(),
+				Requests:      wr.GetRequests(),
+				Limits:        wr.GetLimits(),
 			})
 		}
 
 		var prr []xasv1.PodResourceRecommendation
-		for _, pr := range d.PodResources {
+		for _, pr := range d.GetPodResources() {
 			if pr == nil {
 				continue
 			}
-			rec := xasv1.PodResourceRecommendation{PodName: pr.PodName}
-			if cr := pr.ContainerResources; cr != nil {
+			rec := xasv1.PodResourceRecommendation{PodName: pr.GetPodName()}
+			if cr := pr.GetContainerResources(); cr != nil {
 				rec.Resources = &xasv1.ResourceRecommendation{
-					ContainerName: cr.ContainerName,
-					Requests:      cr.Requests,
-					Limits:        cr.Limits,
+					ContainerName: cr.GetContainerName(),
+					Requests:      cr.GetRequests(),
+					Limits:        cr.GetLimits(),
 				}
 			}
 			prr = append(prr, rec)
 		}
 
 		policyCopy.Status.Recommendations[i] = xasv1.RecommendationStatus{
-			RecommenderName:   d.Name,
-			Type:              d.Type,
-			Phase:             d.Phase,
-			Mode:              d.Mode,
-			Active:            d.IsActive,
-			Reason:            d.Message,
-			Replicas:          d.Replicas,
+			RecommenderName:   d.GetName(),
+			Type:              d.GetType(),
+			Phase:             d.GetPhase(),
+			Mode:              d.GetMode(),
+			Active:            d.GetIsActive(),
+			Reason:            d.GetMessage(),
+			Replicas:          proto.ValueOrNil(d.HasReplicas(), d.GetReplicas),
 			WorkloadResources: wrr,
 			PodResources:      prr,
 		}
 	}
 
-	policyCopy.Status.MetricStatuses = make([]xasv1.MetricStatus, len(resp.MetricStatuses))
-	for i, ms := range resp.MetricStatuses {
+	policyCopy.Status.MetricStatuses = make([]xasv1.MetricStatus, len(resp.GetMetricStatuses()))
+	for i, ms := range resp.GetMetricStatuses() {
 		policyCopy.Status.MetricStatuses[i] = xasv1.MetricStatus{
-			Name:        ms.Name,
+			Name:        ms.GetName(),
 			LastUpdated: ms.GetTimestamp().AsTime().Format(time.RFC3339),
-			Value:       fmt.Sprintf("%g", ms.Value),
-			Error:       ms.Error,
+			Value:       fmt.Sprintf("%g", ms.GetValue()),
+			Error:       ms.GetError(),
 		}
 	}
 
@@ -437,9 +439,9 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 }
 
 func (c *Controller) getRecommendation(namespace, policyName string) (*pb.GetRecommendationResponse, error) {
-	req := &pb.GetRecommendationRequest{
-		Id: &pb.PolicyId{ClusterName: c.clusterName, Namespace: namespace, Name: policyName},
-	}
+	req := pb.GetRecommendationRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String(c.clusterName), Namespace: proto.String(namespace), Name: proto.String(policyName)}.Build(),
+	}.Build()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -460,40 +462,40 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 
 	var metrics []*pb.MetricDefinition
 	for _, m := range p.Spec.Metrics {
-		pm := &pb.MetricDefinition{
-			Name:     m.Name,
-			Provider: m.Provider,
+		pm := pb.MetricDefinition_builder{
+			Name:     proto.String(m.Name),
+			Provider: proto.String(m.Provider),
 			Params:   m.Params,
 			Filter:   m.Filter,
-			Scope:    m.Scope,
-		}
+			Scope:    proto.String(m.Scope),
+		}.Build()
 
 		// Sync Intents
 		if m.Gauge != nil {
-			pm.Gauge = &pb.Gauge{
-				Aggregation: m.Gauge.Aggregation,
-			}
+			pm.SetGauge(pb.Gauge_builder{
+				Aggregation: proto.String(m.Gauge.Aggregation),
+			}.Build())
 		}
 		if m.Rate != nil {
-			pm.Rate = &pb.Rate{
+			pm.SetRate(pb.Rate_builder{
 				Window:      durationpb.New(m.Rate.Window.Duration),
-				Aggregation: m.Rate.Aggregation,
-			}
+				Aggregation: proto.String(m.Rate.Aggregation),
+			}.Build())
 		}
 		if m.Distribution != nil {
-			pm.Distribution = &pb.Distribution{
-				Percentile:  m.Distribution.Percentile,
-				Aggregation: m.Distribution.Aggregation,
-			}
+			pm.SetDistribution(pb.Distribution_builder{
+				Percentile:  proto.String(m.Distribution.Percentile),
+				Aggregation: proto.String(m.Distribution.Aggregation),
+			}.Build())
 		}
 		if m.DecayingDistribution != nil {
-			pm.DecayingDistribution = &pb.DecayingDistribution{
+			pm.SetDecayingDistribution(pb.DecayingDistribution_builder{
 				HalfLife:   durationpb.New(m.DecayingDistribution.HalfLife.Duration),
-				BucketSize: m.DecayingDistribution.BucketSize,
-				Percentile: m.DecayingDistribution.Percentile,
-			}
+				BucketSize: proto.String(m.DecayingDistribution.BucketSize),
+				Percentile: proto.String(m.DecayingDistribution.Percentile),
+			}.Build())
 			if m.DecayingDistribution.Rate != nil {
-				pm.DecayingDistribution.Rate = durationpb.New(m.DecayingDistribution.Rate.Duration)
+				pm.GetDecayingDistribution().SetRate(durationpb.New(m.DecayingDistribution.Rate.Duration))
 			}
 		}
 
@@ -506,13 +508,13 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 		if class, err := c.recommenderLister.Get(r.Recommender); err == nil {
 			recType = class.Spec.Type
 		}
-		activation = append(activation, &pb.RecommenderDefinition{
-			Recommender: r.Recommender,
-			Name:        r.Name,
-			Mode:        r.Mode,
+		activation = append(activation, pb.RecommenderDefinition_builder{
+			Recommender: proto.String(r.Recommender),
+			Name:        proto.String(r.Name),
+			Mode:        proto.String(r.Mode),
 			Params:      r.Params,
-			Type:        recType,
-		})
+			Type:        proto.String(recType),
+		}.Build())
 	}
 
 	var scaling []*pb.RecommenderDefinition
@@ -521,58 +523,58 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 		if class, err := c.recommenderLister.Get(r.Recommender); err == nil {
 			recType = class.Spec.Type
 		}
-		scaling = append(scaling, &pb.RecommenderDefinition{
-			Recommender: r.Recommender,
-			Name:        r.Name,
-			Mode:        r.Mode,
+		scaling = append(scaling, pb.RecommenderDefinition_builder{
+			Recommender: proto.String(r.Recommender),
+			Name:        proto.String(r.Name),
+			Mode:        proto.String(r.Mode),
 			Params:      r.Params,
-			Type:        recType,
-		})
+			Type:        proto.String(recType),
+		}.Build())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	policyId := &pb.PolicyId{
-		ClusterName: c.clusterName,
-		Namespace:   p.Namespace,
-		Name:        p.Name,
-	}
-	getPoliciesReq := &pb.GetPolicyRequest{
+	policyId := pb.PolicyId_builder{
+		ClusterName: proto.String(c.clusterName),
+		Namespace:   proto.String(p.Namespace),
+		Name:        proto.String(p.Name),
+	}.Build()
+	getPoliciesReq := pb.GetPolicyRequest_builder{
 		Id: policyId,
-	}
+	}.Build()
 
 	sp, err := c.grpcClient.GetPolicy(ctx, getPoliciesReq)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return fmt.Errorf("unable to get policy: %w", err)
 	}
-	pol := &pb.Policy{
+	pol := pb.Policy_builder{
 		Id: policyId,
-		Workload: &pb.WorkloadRef{
-			Group:     group,
-			Version:   version,
-			Kind:      p.Spec.ScaleTargetRef.Kind,
-			Name:      p.Spec.ScaleTargetRef.Name,
-			Namespace: p.Namespace,
-		},
-		MinReplicas: 1,
-		MaxReplicas: p.Spec.MaxReplicas,
+		Workload: pb.WorkloadRef_builder{
+			Group:     proto.String(group),
+			Version:   proto.String(version),
+			Kind:      proto.String(p.Spec.ScaleTargetRef.Kind),
+			Name:      proto.String(p.Spec.ScaleTargetRef.Name),
+			Namespace: proto.String(p.Namespace),
+		}.Build(),
+		MinReplicas: proto.Int32(1),
+		MaxReplicas: proto.Int32(p.Spec.MaxReplicas),
 		Metrics:     metrics,
 		Activation:  activation,
 		Scaling:     scaling,
-		Selector:    labels.Set(deployment.Spec.Selector.MatchLabels).String(),
-	}
+		Selector:    proto.String(labels.Set(deployment.Spec.Selector.MatchLabels).String()),
+	}.Build()
 	if err == nil {
-		pol.Etag = sp.GetEtag()
-		pol.RecommenderMetrics = sp.GetRecommenderMetrics()
+		pol.SetEtag(sp.GetEtag())
+		pol.SetRecommenderMetrics(sp.GetRecommenderMetrics())
 	}
 	if p.Spec.MinReplicas != nil {
-		pol.MinReplicas = *p.Spec.MinReplicas
+		pol.SetMinReplicas(*p.Spec.MinReplicas)
 	}
 
-	updatePolicyRequest := &pb.UpdatePolicyRequest{
+	updatePolicyRequest := pb.UpdatePolicyRequest_builder{
 		Policy:       pol,
-		AllowMissing: true,
-	}
+		AllowMissing: proto.Bool(true),
+	}.Build()
 
 	_, err = c.grpcClient.UpdatePolicy(ctx, updatePolicyRequest)
 	return err
@@ -618,12 +620,12 @@ func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv
 	}
 
 	// 3. Send
-	req := &pb.UpdateWorkloadRequest{
-		Id: &pb.PolicyId{ClusterName: c.clusterName, Namespace: policy.Namespace, Name: policy.Name},
-		Workload: &pb.Workload{
+	req := pb.UpdateWorkloadRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String(c.clusterName), Namespace: proto.String(policy.Namespace), Name: proto.String(policy.Name)}.Build(),
+		Workload: pb.Workload_builder{
 			Pods: replicas,
-		},
-	}
+		}.Build(),
+	}.Build()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -635,21 +637,21 @@ func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv
 // buildPodState reports the state of a pod, including the lifecycle facts the
 // Server needs to decide whether the pod's metrics should be considered.
 func buildPodState(pod *corev1.Pod) *pb.PodState {
-	state := &pb.PodState{
-		Name:       pod.Name,
-		NodeName:   pod.Spec.NodeName,
-		Phase:      string(pod.Status.Phase),
+	state := pb.PodState_builder{
+		Name:       proto.String(pod.Name),
+		NodeName:   proto.String(pod.Spec.NodeName),
+		Phase:      proto.String(string(pod.Status.Phase)),
 		Containers: buildContainerStates(pod),
-	}
+	}.Build()
 	if pod.DeletionTimestamp != nil {
-		state.DeletionTimestamp = timestamppb.New(pod.DeletionTimestamp.Time)
+		state.SetDeletionTimestamp(timestamppb.New(pod.DeletionTimestamp.Time))
 	}
 	if pod.Status.StartTime != nil {
-		state.StartTime = timestamppb.New(pod.Status.StartTime.Time)
+		state.SetStartTime(timestamppb.New(pod.Status.StartTime.Time))
 	}
 	if cond := podutil.ReadyCondition(pod); cond != nil {
-		state.IsReady = cond.Status == corev1.ConditionTrue
-		state.ReadyLastTransitionTime = timestamppb.New(cond.LastTransitionTime.Time)
+		state.SetIsReady(cond.Status == corev1.ConditionTrue)
+		state.SetReadyLastTransitionTime(timestamppb.New(cond.LastTransitionTime.Time))
 	}
 	return state
 }
@@ -659,11 +661,11 @@ func buildPodState(pod *corev1.Pod) *pb.PodState {
 func buildContainerStates(pod *corev1.Pod) []*pb.ContainerState {
 	containers := make([]*pb.ContainerState, 0, len(pod.Spec.Containers))
 	for _, container := range pod.Spec.Containers {
-		state := &pb.ContainerState{
-			Name:     container.Name,
+		state := pb.ContainerState_builder{
+			Name:     proto.String(container.Name),
 			Requests: resourceListStrings(container.Resources.Requests),
 			Limits:   resourceListStrings(container.Resources.Limits),
-		}
+		}.Build()
 		containers = append(containers, state)
 	}
 	return containers

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
@@ -40,18 +41,18 @@ type workloadRecommender struct {
 
 func (r *workloadRecommender) Recommend(_ *pb.RecommenderDefinition, _, _ *pb.ControlMetrics, workload *pb.Workload) *pb.Recommendation {
 	r.got = append(r.got, workload)
-	return &pb.Recommendation{IsActive: true}
+	return pb.Recommendation_builder{IsActive: proto.Bool(true)}.Build()
 }
 
 func TestProcessPolicyPassesWorkload(t *testing.T) {
-	workload := &pb.Workload{Pods: []*pb.PodState{
-		{Name: "web-1", Containers: []*pb.ContainerState{{Name: "app", Requests: map[string]string{"cpu": "100m"}}}},
-	}}
-	policy := &pb.Policy{
-		Id:         &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"},
-		Activation: []*pb.RecommenderDefinition{{Name: "act", Recommender: "rec-class"}},
-		Scaling:    []*pb.RecommenderDefinition{{Name: "vpa", Recommender: "rec-class"}},
-	}
+	workload := pb.Workload_builder{Pods: []*pb.PodState{
+		pb.PodState_builder{Name: proto.String("web-1"), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: map[string]string{"cpu": "100m"}}.Build()}}.Build(),
+	}}.Build()
+	policy := pb.Policy_builder{
+		Id:         pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build(),
+		Activation: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("act"), Recommender: proto.String("rec-class")}.Build()},
+		Scaling:    []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("rec-class")}.Build()},
+	}.Build()
 
 	t.Run("every recommender gets the workload", func(t *testing.T) {
 		client := &recommendClient{workload: workload}
@@ -60,7 +61,7 @@ func TestProcessPolicyPassesWorkload(t *testing.T) {
 
 		e.processPolicy(policy)
 
-		if diff := cmp.Diff([]*pb.Workload{workload, workload}, rec.got, protocmp.Transform()); diff != "" {
+		if diff := cmp.Diff([]*pb.Workload{workload, workload}, rec.got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 			t.Errorf("workloads given to Recommend mismatch (-want +got):\n%s", diff)
 		}
 		if len(client.pushed) != 2 {

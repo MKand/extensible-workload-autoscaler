@@ -5,9 +5,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/robfig/cron/v3"
+	"google.golang.org/protobuf/proto"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/clock"
-	"github.com/robfig/cron/v3"
 )
 
 type Recommender struct {
@@ -24,16 +26,16 @@ type config struct {
 func (r *Recommender) Recommend(def *pb.RecommenderDefinition, _, _ *pb.ControlMetrics, _ *pb.Workload) *pb.Recommendation {
 	cfg, err := parseConfig(def)
 	if err != nil {
-		return &pb.Recommendation{
-			Message: err.Error(),
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String(err.Error()),
+		}.Build()
 	}
 
 	isActive, err := checkCron(cfg.start, cfg.end, cfg.location, r.now())
 	if err != nil {
-		return &pb.Recommendation{
-			Message: err.Error(),
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String(err.Error()),
+		}.Build()
 	}
 
 	var replicas *int32
@@ -45,10 +47,10 @@ func (r *Recommender) Recommend(def *pb.RecommenderDefinition, _, _ *pb.ControlM
 		replicas = &desired
 	}
 
-	return &pb.Recommendation{
-		IsActive: isActive,
+	return pb.Recommendation_builder{
+		IsActive: proto.Bool(isActive),
 		Replicas: replicas,
-	}
+	}.Build()
 }
 
 func (r *Recommender) now() time.Time {
@@ -59,8 +61,8 @@ func (r *Recommender) now() time.Time {
 }
 
 func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
-	startStr := def.Params["start"]
-	endStr := def.Params["end"]
+	startStr := def.GetParams()["start"]
+	endStr := def.GetParams()["end"]
 
 	if startStr == "" {
 		return nil, fmt.Errorf("missing start param")
@@ -70,7 +72,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 	}
 
 	loc := time.Local
-	if tz := def.Params["timezone"]; tz != "" {
+	if tz := def.GetParams()["timezone"]; tz != "" {
 		l, err := time.LoadLocation(tz)
 		if err != nil {
 			return nil, fmt.Errorf("invalid timezone: %v", err)
@@ -79,7 +81,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 	}
 
 	var replicas *int32
-	if repStr := def.Params["replicas"]; repStr != "" {
+	if repStr := def.GetParams()["replicas"]; repStr != "" {
 		v, err := strconv.ParseInt(repStr, 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid replicas format")

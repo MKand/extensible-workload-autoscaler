@@ -1,30 +1,31 @@
 package grpc
 
 import (
-	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 )
 
 func validateGetPolicyRequest(req *pb.GetPolicyRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateCreatePolicyRequest(req *pb.CreatePolicyRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validateCreateUpdateRequest(req.Policy)
+	return validateCreateUpdateRequest(req.GetPolicy())
 }
 
 func validateUpdatePolicyRequest(req *pb.UpdatePolicyRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validateCreateUpdateRequest(req.Policy)
+	return validateCreateUpdateRequest(req.GetPolicy())
 }
 
 func validateCreateUpdateRequest(policy *pb.Policy) error {
@@ -32,11 +33,11 @@ func validateCreateUpdateRequest(policy *pb.Policy) error {
 	if policy == nil {
 		return status.Errorf(codes.InvalidArgument, "policy is required")
 	}
-	if err := validatePolicyId(policy.Id); err != nil {
+	if err := validatePolicyId(policy.GetId()); err != nil {
 		return err
 	}
 
-	for _, m := range policy.Metrics {
+	for _, m := range policy.GetMetrics() {
 		if m.GetRecommenderName() != "" {
 			return status.Errorf(codes.InvalidArgument, "metric %s: recommender_name must be empty for policy-wide metrics", m.GetName())
 		}
@@ -44,7 +45,7 @@ func validateCreateUpdateRequest(policy *pb.Policy) error {
 			return err
 		}
 	}
-	for owner, list := range policy.RecommenderMetrics {
+	for owner, list := range policy.GetRecommenderMetrics() {
 		if owner == "" {
 			return status.Errorf(codes.InvalidArgument, "recommender_metrics: recommender name is required")
 		}
@@ -66,44 +67,44 @@ func validateMetricDefinition(m *pb.MetricDefinition) error {
 	if m == nil {
 		return status.Errorf(codes.InvalidArgument, "metric definition is required")
 	}
-	if m.Name == "" {
+	if m.GetName() == "" {
 		return status.Errorf(codes.InvalidArgument, "metric name is required")
 	}
 	// INTENT VALIDATION
 	intents := 0
-	if m.Gauge != nil {
+	if m.HasGauge() {
 		intents++
 	}
-	if m.Rate != nil {
+	if m.HasRate() {
 		intents++
-		if m.Rate.GetWindow().AsDuration() <= 0 {
-			return status.Errorf(codes.InvalidArgument, "metric %s: a positive window is required for rate intent", m.Name)
+		if m.GetRate().GetWindow().AsDuration() <= 0 {
+			return status.Errorf(codes.InvalidArgument, "metric %s: a positive window is required for rate intent", m.GetName())
 		}
 	}
-	if m.Distribution != nil {
+	if m.HasDistribution() {
 		intents++
-		if m.Distribution.Percentile == "" {
-			return status.Errorf(codes.InvalidArgument, "metric %s: percentile is required for distribution intent", m.Name)
+		if m.GetDistribution().GetPercentile() == "" {
+			return status.Errorf(codes.InvalidArgument, "metric %s: percentile is required for distribution intent", m.GetName())
 		}
 	}
-	if m.DecayingDistribution != nil {
+	if m.HasDecayingDistribution() {
 		intents++
-		if m.DecayingDistribution.GetHalfLife().AsDuration() <= 0 {
-			return status.Errorf(codes.InvalidArgument, "metric %s: a positive half_life is required for decaying_distribution intent", m.Name)
+		if m.GetDecayingDistribution().GetHalfLife().AsDuration() <= 0 {
+			return status.Errorf(codes.InvalidArgument, "metric %s: a positive half_life is required for decaying_distribution intent", m.GetName())
 		}
-		if m.DecayingDistribution.BucketSize == "" {
-			return status.Errorf(codes.InvalidArgument, "metric %s: bucket_size is required for decaying_distribution intent", m.Name)
+		if m.GetDecayingDistribution().GetBucketSize() == "" {
+			return status.Errorf(codes.InvalidArgument, "metric %s: bucket_size is required for decaying_distribution intent", m.GetName())
 		}
-		if m.DecayingDistribution.Percentile == "" {
-			return status.Errorf(codes.InvalidArgument, "metric %s: percentile is required for decaying_distribution intent", m.Name)
+		if m.GetDecayingDistribution().GetPercentile() == "" {
+			return status.Errorf(codes.InvalidArgument, "metric %s: percentile is required for decaying_distribution intent", m.GetName())
 		}
 	}
 
 	if intents == 0 {
-		return status.Errorf(codes.InvalidArgument, "metric %s: exactly one intent must be specified", m.Name)
+		return status.Errorf(codes.InvalidArgument, "metric %s: exactly one intent must be specified", m.GetName())
 	}
 	if intents > 1 {
-		return status.Errorf(codes.InvalidArgument, "metric %s: only one intent can be specified", m.Name)
+		return status.Errorf(codes.InvalidArgument, "metric %s: only one intent can be specified", m.GetName())
 	}
 	return nil
 }
@@ -112,28 +113,28 @@ func validateDeletePolicyRequest(req *pb.DeletePolicyRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateListPoliciesRequest(req *pb.ListPoliciesRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validateClusterName(req.ClusterName)
+	return validateClusterName(req.GetClusterName())
 }
 
 func validateUpdateWorkloadRequest(req *pb.UpdateWorkloadRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	if err := validatePolicyId(req.Id); err != nil {
+	if err := validatePolicyId(req.GetId()); err != nil {
 		return err
 	}
-	if req.Workload == nil {
+	if !req.HasWorkload() {
 		return status.Errorf(codes.InvalidArgument, "workload is required")
 	}
-	for _, p := range req.Workload.Pods {
-		if p.Name == "" {
+	for _, p := range req.GetWorkload().GetPods() {
+		if p.GetName() == "" {
 			return status.Errorf(codes.InvalidArgument, "pod name is required")
 		}
 	}
@@ -144,48 +145,48 @@ func validateGetControlMetricsRequest(req *pb.GetControlMetricsRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateGetWorkloadRequest(req *pb.GetWorkloadRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateUpdateRecommenderStateRequest(req *pb.UpdateRecommenderStateRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateGetRecommendationRequest(req *pb.GetRecommendationRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validatePolicyId(req.Id)
+	return validatePolicyId(req.GetId())
 }
 
 func validateIngestMetricsRequest(req *pb.IngestMetricsRequest) error {
 	if req == nil {
 		return status.Errorf(codes.InvalidArgument, "request is nil")
 	}
-	return validateClusterName(req.ClusterName)
+	return validateClusterName(req.GetClusterName())
 }
 
 func validatePolicyId(id *pb.PolicyId) error {
 	if id == nil {
 		return status.Errorf(codes.InvalidArgument, "policy id is required")
 	}
-	if id.ClusterName == "" {
+	if id.GetClusterName() == "" {
 		return status.Errorf(codes.InvalidArgument, "cluster_name is required")
 	}
-	if id.Namespace == "" {
+	if id.GetNamespace() == "" {
 		return status.Errorf(codes.InvalidArgument, "namespace is required")
 	}
-	if id.Name == "" {
+	if id.GetName() == "" {
 		return status.Errorf(codes.InvalidArgument, "name is required")
 	}
 	return nil

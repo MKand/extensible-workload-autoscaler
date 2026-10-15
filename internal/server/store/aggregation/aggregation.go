@@ -124,8 +124,8 @@ func (a *DimensionalSeriesAggregation) Reduce(series iter.Seq[*model.Series], wo
 // (e.g. CPU or memory usage).
 func CreateSeriesAggregation(def *pb.MetricDefinition, resourceName, podName, containerName string) SeriesAggregation {
 	seriesFilters := []SeriesFilter{
-		NonEligiblePodSeriesFilter,          // Drops series associated with non-eligible pods
-		CreateLabelSeriesFilter(def.Filter), // Apply label filters
+		NonEligiblePodSeriesFilter,               // Drops series associated with non-eligible pods
+		CreateLabelSeriesFilter(def.GetFilter()), // Apply label filters
 	}
 
 	labelsReducer := SumSeriesReducer
@@ -149,34 +149,34 @@ func CreateSeriesAggregation(def *pb.MetricDefinition, resourceName, podName, co
 	workloadDecayingDistribution := model.TimeWindow(nil)
 
 	switch {
-	case def.Gauge != nil && def.Gauge.Aggregation != "":
-		podReducer = NewSeriesReducer(def.Gauge.Aggregation)
-	case def.Rate != nil && def.Rate.Aggregation != "":
-		podReducer = NewSeriesReducer(def.Rate.Aggregation)
-	case def.Distribution != nil:
+	case def.HasGauge() && def.GetGauge().GetAggregation() != "":
+		podReducer = NewSeriesReducer(def.GetGauge().GetAggregation())
+	case def.HasRate() && def.GetRate().GetAggregation() != "":
+		podReducer = NewSeriesReducer(def.GetRate().GetAggregation())
+	case def.HasDistribution():
 		// The bucket rates are merged across every aggregated dimension and
 		// the percentile is extracted from the result, so that e.g. a Global
 		// p95 is the p95 of all the observations of the workload rather than
 		// an average of per-pod p95s.
 		merge := MergeDistributionSeriesReducer
 		labelsReducer, containerReducer, podReducer = merge, merge, merge
-		finalTransform = CreatePercentileTransform(parsePercentile(def.Distribution.Percentile))
+		finalTransform = CreatePercentileTransform(parsePercentile(def.GetDistribution().GetPercentile()))
 	// For global metrics with decaying distributions, we only build one
 	// distribution for the whole workload (i.e. not one-per-series).
-	case def.DecayingDistribution != nil && (def.Scope == "" || def.Scope == model.ScopeGlobal):
-		workloadDecayingDistribution = NewDecayingDistributionAggregation(def.DecayingDistribution)
+	case def.HasDecayingDistribution() && (def.GetScope() == "" || def.GetScope() == model.ScopeGlobal):
+		workloadDecayingDistribution = NewDecayingDistributionAggregation(def.GetDecayingDistribution())
 		// Don't aggregate series, only use the workload-wide time window.
 		podReducer, containerReducer, labelsReducer = nil, nil, nil
-		finalTransform = CreatePercentileTransform(parsePercentile(def.DecayingDistribution.Percentile))
-	case def.DecayingDistribution != nil:
+		finalTransform = CreatePercentileTransform(parsePercentile(def.GetDecayingDistribution().GetPercentile()))
+	case def.HasDecayingDistribution():
 		// Idem, with the decaying histograms.
-		merge := CreateMergeDecayingDistributionSeriesReducer(def.DecayingDistribution)
+		merge := CreateMergeDecayingDistributionSeriesReducer(def.GetDecayingDistribution())
 		labelsReducer, containerReducer, podReducer = merge, merge, merge
-		finalTransform = CreatePercentileTransform(parsePercentile(def.DecayingDistribution.Percentile))
+		finalTransform = CreatePercentileTransform(parsePercentile(def.GetDecayingDistribution().GetPercentile()))
 	}
 
 	// The scope decides which dimensions are kept.
-	switch def.Scope {
+	switch def.GetScope() {
 	case model.ScopePod:
 		podReducer = nil
 	case model.ScopeContainer:
@@ -242,15 +242,15 @@ func AddControlMetric(cm *pb.ControlMetrics, metricName string, aggregates []*Se
 	for _, s := range aggregates {
 		switch {
 		case s.podName == "" && s.containerName == "":
-			cm.Values[metricName] = s.sample.Value
+			cm.GetValues()[metricName] = s.sample.Value
 		case s.containerName == "":
-			mv := metricValues(cm.PodMetrics, s.podName)
-			mv.Values[metricName] = s.sample.Value
+			mv := metricValues(cm.GetPodMetrics(), s.podName)
+			mv.GetValues()[metricName] = s.sample.Value
 		case s.podName == "":
-			mv := metricValues(cm.ContainerMetrics.ContainerMetrics, s.containerName)
-			mv.Values[metricName] = s.sample.Value
+			mv := metricValues(cm.GetContainerMetrics().GetContainerMetrics(), s.containerName)
+			mv.GetValues()[metricName] = s.sample.Value
 		default:
-			podMetricValues(cm.PodContainerMetrics, s.podName, s.containerName).Values[metricName] = s.sample.Value
+			podMetricValues(cm.GetPodContainerMetrics(), s.podName, s.containerName).GetValues()[metricName] = s.sample.Value
 		}
 	}
 	return cm
@@ -261,13 +261,13 @@ func AddControlMetric(cm *pb.ControlMetrics, metricName string, aggregates []*Se
 func podMetricValues(pcm map[string]*pb.ContainerMetrics, podName, containerName string) *pb.MetricValues {
 	cm, ok := pcm[podName]
 	if !ok {
-		cm = &pb.ContainerMetrics{ContainerMetrics: make(map[string]*pb.MetricValues)}
+		cm = pb.ContainerMetrics_builder{ContainerMetrics: make(map[string]*pb.MetricValues)}.Build()
 		pcm[podName] = cm
 	}
-	mv, ok := cm.ContainerMetrics[containerName]
+	mv, ok := cm.GetContainerMetrics()[containerName]
 	if !ok {
-		mv = &pb.MetricValues{Values: make(map[string]float64)}
-		cm.ContainerMetrics[containerName] = mv
+		mv = pb.MetricValues_builder{Values: make(map[string]float64)}.Build()
+		cm.GetContainerMetrics()[containerName] = mv
 	}
 	return mv
 }
@@ -277,7 +277,7 @@ func podMetricValues(pcm map[string]*pb.ContainerMetrics, podName, containerName
 func metricValues(all map[string]*pb.MetricValues, key string) *pb.MetricValues {
 	mv, ok := all[key]
 	if !ok {
-		mv = &pb.MetricValues{Values: make(map[string]float64)}
+		mv = pb.MetricValues_builder{Values: make(map[string]float64)}.Build()
 		all[key] = mv
 	}
 	return mv
@@ -334,15 +334,15 @@ func groupBy(aggregates []*SeriesAggregate, reduce SeriesReducer) []*SeriesAggre
 // metric definition.
 func NewTimeWindow(def *pb.MetricDefinition) model.TimeWindow {
 	switch {
-	case def.Gauge != nil:
+	case def.HasGauge():
 		return NewLatestAggregation(time.Minute)
-	case def.Rate != nil:
-		return NewRateAggregation(def.Rate.GetWindow().AsDuration())
-	case def.Distribution != nil:
+	case def.HasRate():
+		return NewRateAggregation(def.GetRate().GetWindow().AsDuration())
+	case def.HasDistribution():
 		// Bucket rates over the same freshness window as gauges.
 		return NewDistributionAggregation(time.Minute)
-	case def.DecayingDistribution != nil:
-		return NewDecayingDistributionAggregation(def.DecayingDistribution)
+	case def.HasDecayingDistribution():
+		return NewDecayingDistributionAggregation(def.GetDecayingDistribution())
 	default:
 		panic("Not implemented")
 	}
@@ -500,9 +500,9 @@ type DecayingDistributionAggregation struct {
 var _ model.TimeWindow = (*DecayingDistributionAggregation)(nil)
 
 func NewDecayingDistributionAggregation(def *pb.DecayingDistribution) *DecayingDistributionAggregation {
-	halfLife := def.HalfLife.AsDuration()
+	halfLife := def.GetHalfLife().AsDuration()
 	// The reference time is set by the first sample.
-	histogram, _ := model.NewDecayingHistogram(time.Time{}, halfLife, def.BucketSize)
+	histogram, _ := model.NewDecayingHistogram(time.Time{}, halfLife, def.GetBucketSize())
 	a := &DecayingDistributionAggregation{histogram: histogram}
 	if def.GetRate().AsDuration() > 0 {
 		a.rate = NewRateAggregation(def.GetRate().AsDuration())

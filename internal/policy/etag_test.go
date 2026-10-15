@@ -14,25 +14,25 @@ import (
 // etagTestPolicy returns a policy that sets every field, including several
 // map entries, so that non-deterministic map ordering would show up.
 func etagTestPolicy() *pb.Policy {
-	return &pb.Policy{
-		Id:          &pb.PolicyId{ClusterName: "c", Namespace: "ns", Name: "pol"},
-		Workload:    &pb.WorkloadRef{Kind: "Deployment", Name: "web"},
-		MinReplicas: 1,
-		MaxReplicas: 10,
-		Selector:    "app=web",
-		Metrics: []*pb.MetricDefinition{{
-			Name:   "rps",
+	return pb.Policy_builder{
+		Id:          pb.PolicyId_builder{ClusterName: proto.String("c"), Namespace: proto.String("ns"), Name: proto.String("pol")}.Build(),
+		Workload:    pb.WorkloadRef_builder{Kind: proto.String("Deployment"), Name: proto.String("web")}.Build(),
+		MinReplicas: proto.Int32(1),
+		MaxReplicas: proto.Int32(10),
+		Selector:    proto.String("app=web"),
+		Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{
+			Name:   proto.String("rps"),
 			Params: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4"},
-		}},
-		Scaling:    []*pb.RecommenderDefinition{{Name: "linear"}},
-		Activation: []*pb.RecommenderDefinition{{Name: "cron"}},
+		}.Build()},
+		Scaling:    []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("linear")}.Build()},
+		Activation: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("cron")}.Build()},
 		RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-			"vpa":  {Definitions: []*pb.MetricDefinition{{Name: "cpu"}, {Name: "memory"}}},
-			"hpa":  {Definitions: []*pb.MetricDefinition{{Name: "qps"}}},
-			"cron": {Definitions: []*pb.MetricDefinition{{Name: "tick"}}},
-			"ml":   {Definitions: []*pb.MetricDefinition{{Name: "forecast"}}},
+			"vpa":  pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu")}.Build(), pb.MetricDefinition_builder{Name: proto.String("memory")}.Build()}}.Build(),
+			"hpa":  pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("qps")}.Build()}}.Build(),
+			"cron": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("tick")}.Build()}}.Build(),
+			"ml":   pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("forecast")}.Build()}}.Build(),
 		},
-	}
+	}.Build()
 }
 
 // etagOf returns the ETag computed for p. It fails the test on error.
@@ -65,9 +65,9 @@ func TestCreateEtag_SameContentSameEtag(t *testing.T) {
 func TestCreateEtag_MapInsertionOrderDoesNotMatter(t *testing.T) {
 	a := etagTestPolicy()
 	b := etagTestPolicy()
-	b.RecommenderMetrics = map[string]*pb.MetricDefinitionList{}
+	b.SetRecommenderMetrics(map[string]*pb.MetricDefinitionList{})
 	for _, k := range []string{"ml", "cron", "hpa", "vpa"} {
-		b.RecommenderMetrics[k] = proto.Clone(a.RecommenderMetrics[k]).(*pb.MetricDefinitionList)
+		b.GetRecommenderMetrics()[k] = proto.Clone(a.GetRecommenderMetrics()[k]).(*pb.MetricDefinitionList)
 	}
 
 	if ea, eb := etagOf(t, a), etagOf(t, b); ea != eb {
@@ -82,21 +82,21 @@ func TestCreateEtag_AnyFieldChangeChangesEtag(t *testing.T) {
 		name   string
 		mutate func(p *pb.Policy)
 	}{
-		{"id", func(p *pb.Policy) { p.Id.Name = "other" }},
-		{"workload", func(p *pb.Policy) { p.Workload.Name = "api" }},
-		{"min_replicas", func(p *pb.Policy) { p.MinReplicas = 2 }},
-		{"max_replicas", func(p *pb.Policy) { p.MaxReplicas = 11 }},
-		{"selector", func(p *pb.Policy) { p.Selector = "app=api" }},
-		{"metrics", func(p *pb.Policy) { p.Metrics[0].Name = "latency" }},
-		{"metric params", func(p *pb.Policy) { p.Metrics[0].Params["a"] = "9" }},
-		{"scaling", func(p *pb.Policy) { p.Scaling[0].Name = "vpa" }},
-		{"activation", func(p *pb.Policy) { p.Activation = nil }},
-		{"recommender_metrics entry", func(p *pb.Policy) { delete(p.RecommenderMetrics, "hpa") }},
+		{"id", func(p *pb.Policy) { p.GetId().SetName("other") }},
+		{"workload", func(p *pb.Policy) { p.GetWorkload().SetName("api") }},
+		{"min_replicas", func(p *pb.Policy) { p.SetMinReplicas(2) }},
+		{"max_replicas", func(p *pb.Policy) { p.SetMaxReplicas(11) }},
+		{"selector", func(p *pb.Policy) { p.SetSelector("app=api") }},
+		{"metrics", func(p *pb.Policy) { p.GetMetrics()[0].SetName("latency") }},
+		{"metric params", func(p *pb.Policy) { p.GetMetrics()[0].GetParams()["a"] = "9" }},
+		{"scaling", func(p *pb.Policy) { p.GetScaling()[0].SetName("vpa") }},
+		{"activation", func(p *pb.Policy) { p.SetActivation(nil) }},
+		{"recommender_metrics entry", func(p *pb.Policy) { delete(p.GetRecommenderMetrics(), "hpa") }},
 		{"recommender_metrics value", func(p *pb.Policy) {
-			p.RecommenderMetrics["vpa"].Definitions[0].Name = "gpu"
+			p.GetRecommenderMetrics()["vpa"].GetDefinitions()[0].SetName("gpu")
 		}},
 		{"list order", func(p *pb.Policy) {
-			d := p.RecommenderMetrics["vpa"].Definitions
+			d := p.GetRecommenderMetrics()["vpa"].GetDefinitions()
 			d[0], d[1] = d[1], d[0]
 		}},
 	}
@@ -113,14 +113,14 @@ func TestCreateEtag_AnyFieldChangeChangesEtag(t *testing.T) {
 
 func TestCreateEtag_DoesNotModifyInput(t *testing.T) {
 	p := etagTestPolicy()
-	p.Etag = "previous-etag"
+	p.SetEtag("previous-etag")
 	before := proto.Clone(p).(*pb.Policy)
 
 	if _, err := policy.CreateEtag(p); err != nil {
 		t.Fatalf("CreateEtag() error = %v", err)
 	}
 
-	if diff := cmp.Diff(before, p, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(before, p, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("CreateEtag() modified its input (-before +after):\n%s", diff)
 	}
 }
@@ -130,7 +130,7 @@ func TestCreateEtag_DoesNotModifyInput(t *testing.T) {
 func TestCreateEtag_IgnoresExistingEtag(t *testing.T) {
 	empty := etagTestPolicy()
 	stale := etagTestPolicy()
-	stale.Etag = "stale-etag"
+	stale.SetEtag("stale-etag")
 
 	if e1, e2 := etagOf(t, empty), etagOf(t, stale); e1 != e2 {
 		t.Errorf("the input etag changed the result: %q vs %q", e1, e2)

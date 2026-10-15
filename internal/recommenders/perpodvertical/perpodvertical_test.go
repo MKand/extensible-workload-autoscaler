@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
@@ -12,9 +13,9 @@ import (
 // podContainers builds a PodContainerMetrics entry: container name -> metric
 // name -> value.
 func podContainers(byContainer map[string]map[string]float64) *pb.ContainerMetrics {
-	cm := &pb.ContainerMetrics{ContainerMetrics: make(map[string]*pb.MetricValues)}
+	cm := pb.ContainerMetrics_builder{ContainerMetrics: make(map[string]*pb.MetricValues)}.Build()
 	for name, values := range byContainer {
-		cm.ContainerMetrics[name] = &pb.MetricValues{Values: values}
+		cm.GetContainerMetrics()[name] = pb.MetricValues_builder{Values: values}.Build()
 	}
 	return cm
 }
@@ -30,55 +31,55 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 	}{
 		{
 			name: "Basic CPU recommendation with safety margin",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":       "pod_cpu",
 					"target":       "0.8",
 					"safetyMargin": "1.2",
 					"container":    "main",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod1": podContainers(map[string]map[string]float64{"main": {"pod_cpu": 0.4}}), // 0.4 * (1.2 / 0.8) = 0.6 -> 600m
 					"pod2": podContainers(map[string]map[string]float64{"main": {"pod_cpu": 0.8}}), // 0.8 * (1.2 / 0.8) = 1.2 -> 1200m
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "600m"},
 							Limits:        map[string]string{},
-						},
-					},
-					{
-						PodName: "pod2",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+						}.Build(),
+					}.Build(),
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod2"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "1200m"},
 							Limits:        map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Only the target container's usage is used, not its neighbors'",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":    "pod_cpu",
 					"target":    "1.0",
 					"container": "main",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				// The pod-level value mixes main and sidecar and must be ignored.
 				PodMetrics: map[string]*pb.MetricValues{
-					"pod1": {Values: map[string]float64{"pod_cpu": 0.75}},
+					"pod1": pb.MetricValues_builder{Values: map[string]float64{"pod_cpu": 0.75}}.Build(),
 				},
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod1": podContainers(map[string]map[string]float64{
@@ -86,53 +87,53 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 						"sidecar": {"pod_cpu": 0.5},
 					}),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "1000m"},
 							Limits:        map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Pods not reporting the target container are skipped",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":    "pod_cpu",
 					"target":    "1.0",
 					"container": "main",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod1": podContainers(map[string]map[string]float64{"main": {"pod_cpu": 0.3}}),
 					"pod2": podContainers(map[string]map[string]float64{"sidecar": {"pod_cpu": 0.9}}),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "300m"},
 							Limits:        map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "CPU bounds minCpu and maxCpu",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":    "pod_cpu",
 					"target":    "0.5",
@@ -140,38 +141,38 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 					"minCpu":    "200m",
 					"maxCpu":    "1000m",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod-low":  podContainers(map[string]map[string]float64{"main": {"pod_cpu": 0.05}}), // 0.05 / 0.5 = 0.1 (100m) -> minCpu 200m
 					"pod-high": podContainers(map[string]map[string]float64{"main": {"pod_cpu": 1.5}}),  // 1.5 / 0.5 = 3.0 (3000m) -> maxCpu 1000m
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod-high",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod-high"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "1000m"},
 							Limits:        map[string]string{},
-						},
-					},
-					{
-						PodName: "pod-low",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+						}.Build(),
+					}.Build(),
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod-low"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "200m"},
 							Limits:        map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Memory recommendation",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":       "pod_memory",
 					"target":       "0.8",
@@ -179,103 +180,103 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 					"container":    "main",
 					"minMemory":    "128Mi",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod1": podContainers(map[string]map[string]float64{"main": {"pod_memory": 262144000}}), // 250Mi bytes
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"memory": "393216000"},
 							Limits:        map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Pod-scoped metric is rejected with an actionable message",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":    "pod_cpu",
 					"target":    "1.0",
 					"container": "main",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodMetrics: map[string]*pb.MetricValues{
-					"pod1": {Values: map[string]float64{"pod_cpu": 0.5}},
+					"pod1": pb.MetricValues_builder{Values: map[string]float64{"pod_cpu": 0.5}}.Build(),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				Message: `metric "pod_cpu" has no per-container data: define it with scope "PodContainer"`,
-			},
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String(`metric "pod_cpu" has no per-container data: define it with scope "PodContainer"`),
+			}.Build(),
 		},
 		{
 			name: "No metrics at all",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":    "pod_cpu",
 					"target":    "1.0",
 					"container": "main",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			wantVote: &pb.Recommendation{
-				Message: "no pod container metrics available",
-			},
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String("no pod container metrics available"),
+			}.Build(),
 		},
 		{
 			name: "Missing container param",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric": "pod_cpu",
 					"target": "1.0",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			wantVote: &pb.Recommendation{
-				Message: "missing container param",
-			},
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String("missing container param"),
+			}.Build(),
 		},
 		{
 			name: "Container level with limitRatio",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":     "pod_cpu",
 					"target":     "1.0",
 					"container":  "main",
 					"limitRatio": "1.5",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					"pod1": podContainers(map[string]map[string]float64{"main": {"pod_cpu": 0.4}}),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
-							ContainerName: "main",
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
+							ContainerName: proto.String("main"),
 							Requests:      map[string]string{"cpu": "400m"},
 							Limits:        map[string]string{"cpu": "600m"},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Pod level sums all containers and targets pod-level resources",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"resourceLevel": "Pod",
 					"metric":        "pod_cpu",
@@ -283,8 +284,8 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 					"safetyMargin":  "1.2",
 					"limitRatio":    "2",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					// (1.0 + 0.6) * 1.5 = 2.4 -> 2400m, limit 4800m
 					"pod1": podContainers(map[string]map[string]float64{
@@ -296,38 +297,38 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 						"main": {"pod_cpu": 0.2},
 					}),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
 							Requests: map[string]string{"cpu": "2400m"},
 							Limits:   map[string]string{"cpu": "4800m"},
-						},
-					},
-					{
-						PodName: "pod2",
-						ContainerResources: &pb.ContainerResource{
+						}.Build(),
+					}.Build(),
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod2"),
+						ContainerResources: pb.ContainerResource_builder{
 							Requests: map[string]string{"cpu": "300m"},
 							Limits:   map[string]string{"cpu": "600m"},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Pod level bounds apply to the pod total",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"resourceLevel": "Pod",
 					"metric":        "pod_cpu",
 					"target":        "1.0",
 					"maxCpu":        "1",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
 					// 0.7 + 0.7 = 1.4 -> capped at 1000m, although each container is below the cap.
 					"pod1": podContainers(map[string]map[string]float64{
@@ -335,70 +336,70 @@ func TestPerPodVerticalRecommender(t *testing.T) {
 						"b": {"pod_cpu": 0.7},
 					}),
 				},
-			},
-			wantVote: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			wantVote: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				PodContainerResources: []*pb.PodContainerResource{
-					{
-						PodName: "pod1",
-						ContainerResources: &pb.ContainerResource{
+					pb.PodContainerResource_builder{
+						PodName: proto.String("pod1"),
+						ContainerResources: pb.ContainerResource_builder{
 							Requests: map[string]string{"cpu": "1000m"},
 							Limits:   map[string]string{},
-						},
-					},
+						}.Build(),
+					}.Build(),
 				},
-			},
+			}.Build(),
 		},
 		{
 			name: "Pod level rejects container param",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"resourceLevel": "Pod",
 					"metric":        "pod_cpu",
 					"target":        "1.0",
 					"container":     "main",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			wantVote: &pb.Recommendation{
-				Message: `container param is not allowed with resourceLevel "Pod"`,
-			},
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String(`container param is not allowed with resourceLevel "Pod"`),
+			}.Build(),
 		},
 		{
 			name: "Invalid resourceLevel",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"resourceLevel": "Node",
 					"metric":        "pod_cpu",
 					"target":        "1.0",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			wantVote: &pb.Recommendation{
-				Message: `invalid resourceLevel "Node": must be "Container" or "Pod"`,
-			},
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String(`invalid resourceLevel "Node": must be "Container" or "Pod"`),
+			}.Build(),
 		},
 		{
 			name: "limitRatio below 1 is rejected",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"metric":     "pod_cpu",
 					"target":     "1.0",
 					"container":  "main",
 					"limitRatio": "0.5",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			wantVote: &pb.Recommendation{
-				Message: "limitRatio must be >= 1",
-			},
+			wantVote: pb.Recommendation_builder{
+				Message: proto.String("limitRatio must be >= 1"),
+			}.Build(),
 		},
 	}
 
 	opts := []cmp.Option{
-		protocmp.Transform(),
+		protocmp.Transform(), protocmp.IgnoreDefaultScalars(),
 		protocmp.SortRepeated(func(a, b *pb.PodContainerResource) bool {
-			return a.PodName < b.PodName
+			return a.GetPodName() < b.GetPodName()
 		}),
 	}
 

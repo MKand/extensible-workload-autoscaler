@@ -13,7 +13,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
-	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -26,15 +25,14 @@ const (
 
 // PolicyId uniquely identifies a ScalingPolicy across clusters.
 type PolicyId struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The cluster this policy belongs to.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	// The namespace of the policy.
-	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// The name of the policy.
-	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ClusterName *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName"`
+	xxx_hidden_Namespace   *string                `protobuf:"bytes,2,opt,name=namespace"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,3,opt,name=name"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PolicyId) Reset() {
@@ -62,39 +60,123 @@ func (x *PolicyId) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PolicyId.ProtoReflect.Descriptor instead.
-func (*PolicyId) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{0}
-}
-
 func (x *PolicyId) GetClusterName() string {
 	if x != nil {
-		return x.ClusterName
+		if x.xxx_hidden_ClusterName != nil {
+			return *x.xxx_hidden_ClusterName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PolicyId) GetNamespace() string {
 	if x != nil {
-		return x.Namespace
+		if x.xxx_hidden_Namespace != nil {
+			return *x.xxx_hidden_Namespace
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PolicyId) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *PolicyId) SetClusterName(v string) {
+	x.xxx_hidden_ClusterName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *PolicyId) SetNamespace(v string) {
+	x.xxx_hidden_Namespace = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *PolicyId) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *PolicyId) HasClusterName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *PolicyId) HasNamespace() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *PolicyId) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *PolicyId) ClearClusterName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ClusterName = nil
+}
+
+func (x *PolicyId) ClearNamespace() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Namespace = nil
+}
+
+func (x *PolicyId) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Name = nil
+}
+
+type PolicyId_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The cluster this policy belongs to.
+	ClusterName *string
+	// The namespace of the policy.
+	Namespace *string
+	// The name of the policy.
+	Name *string
+}
+
+func (b0 PolicyId_builder) Build() *PolicyId {
+	m0 := &PolicyId{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ClusterName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_ClusterName = b.ClusterName
+	}
+	if b.Namespace != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Namespace = b.Namespace
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	return m0
+}
+
 // CreatePolicyRequest is used to create a policy definition.
 type CreatePolicyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy definition.
-	Policy        *Policy `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Policy *Policy                `protobuf:"bytes,1,opt,name=policy"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CreatePolicyRequest) Reset() {
@@ -122,27 +204,52 @@ func (x *CreatePolicyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreatePolicyRequest.ProtoReflect.Descriptor instead.
-func (*CreatePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{1}
-}
-
 func (x *CreatePolicyRequest) GetPolicy() *Policy {
 	if x != nil {
-		return x.Policy
+		return x.xxx_hidden_Policy
 	}
 	return nil
 }
 
+func (x *CreatePolicyRequest) SetPolicy(v *Policy) {
+	x.xxx_hidden_Policy = v
+}
+
+func (x *CreatePolicyRequest) HasPolicy() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Policy != nil
+}
+
+func (x *CreatePolicyRequest) ClearPolicy() {
+	x.xxx_hidden_Policy = nil
+}
+
+type CreatePolicyRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy definition.
+	Policy *Policy
+}
+
+func (b0 CreatePolicyRequest_builder) Build() *CreatePolicyRequest {
+	m0 := &CreatePolicyRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Policy = b.Policy
+	return m0
+}
+
 // UpdatePolicyRequest is used to create or update a policy definition.
 type UpdatePolicyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy definition.
-	Policy *Policy `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
-	// Creates a new policy only if allow_missing is true
-	AllowMissing  bool `protobuf:"varint,2,opt,name=allow_missing,json=allowMissing,proto3" json:"allow_missing,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Policy       *Policy                `protobuf:"bytes,1,opt,name=policy"`
+	xxx_hidden_AllowMissing bool                   `protobuf:"varint,2,opt,name=allow_missing,json=allowMissing"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *UpdatePolicyRequest) Reset() {
@@ -170,30 +277,77 @@ func (x *UpdatePolicyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdatePolicyRequest.ProtoReflect.Descriptor instead.
-func (*UpdatePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{2}
-}
-
 func (x *UpdatePolicyRequest) GetPolicy() *Policy {
 	if x != nil {
-		return x.Policy
+		return x.xxx_hidden_Policy
 	}
 	return nil
 }
 
 func (x *UpdatePolicyRequest) GetAllowMissing() bool {
 	if x != nil {
-		return x.AllowMissing
+		return x.xxx_hidden_AllowMissing
 	}
 	return false
 }
 
+func (x *UpdatePolicyRequest) SetPolicy(v *Policy) {
+	x.xxx_hidden_Policy = v
+}
+
+func (x *UpdatePolicyRequest) SetAllowMissing(v bool) {
+	x.xxx_hidden_AllowMissing = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *UpdatePolicyRequest) HasPolicy() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Policy != nil
+}
+
+func (x *UpdatePolicyRequest) HasAllowMissing() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *UpdatePolicyRequest) ClearPolicy() {
+	x.xxx_hidden_Policy = nil
+}
+
+func (x *UpdatePolicyRequest) ClearAllowMissing() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_AllowMissing = false
+}
+
+type UpdatePolicyRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy definition.
+	Policy *Policy
+	// Creates a new policy only if allow_missing is true
+	AllowMissing *bool
+}
+
+func (b0 UpdatePolicyRequest_builder) Build() *UpdatePolicyRequest {
+	m0 := &UpdatePolicyRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Policy = b.Policy
+	if b.AllowMissing != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_AllowMissing = *b.AllowMissing
+	}
+	return m0
+}
+
 // GetPolicyRequest identifies a policy by PolicyId to get.
 type GetPolicyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The unique ID of the policy.
-	Id            *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id *PolicyId              `protobuf:"bytes,1,opt,name=id"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -223,23 +377,47 @@ func (x *GetPolicyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetPolicyRequest.ProtoReflect.Descriptor instead.
-func (*GetPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{3}
-}
-
 func (x *GetPolicyRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
+func (x *GetPolicyRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *GetPolicyRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *GetPolicyRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+type GetPolicyRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The unique ID of the policy.
+	Id *PolicyId
+}
+
+func (b0 GetPolicyRequest_builder) Build() *GetPolicyRequest {
+	m0 := &GetPolicyRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	return m0
+}
+
 // DeletePolicyRequest identifies a policy to delete.
 type DeletePolicyRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The unique ID of the policy.
-	Id            *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id *PolicyId              `protobuf:"bytes,1,opt,name=id"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -269,25 +447,51 @@ func (x *DeletePolicyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DeletePolicyRequest.ProtoReflect.Descriptor instead.
-func (*DeletePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{4}
-}
-
 func (x *DeletePolicyRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
+func (x *DeletePolicyRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *DeletePolicyRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *DeletePolicyRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+type DeletePolicyRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The unique ID of the policy.
+	Id *PolicyId
+}
+
+func (b0 DeletePolicyRequest_builder) Build() *DeletePolicyRequest {
+	m0 := &DeletePolicyRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	return m0
+}
+
 // ListPoliciesRequest is used to list policies.
 type ListPoliciesRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The cluster to list policies for (required).
-	ClusterName   string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ClusterName *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ListPoliciesRequest) Reset() {
@@ -315,25 +519,57 @@ func (x *ListPoliciesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListPoliciesRequest.ProtoReflect.Descriptor instead.
-func (*ListPoliciesRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{5}
-}
-
 func (x *ListPoliciesRequest) GetClusterName() string {
 	if x != nil {
-		return x.ClusterName
+		if x.xxx_hidden_ClusterName != nil {
+			return *x.xxx_hidden_ClusterName
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *ListPoliciesRequest) SetClusterName(v string) {
+	x.xxx_hidden_ClusterName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ListPoliciesRequest) HasClusterName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ListPoliciesRequest) ClearClusterName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ClusterName = nil
+}
+
+type ListPoliciesRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The cluster to list policies for (required).
+	ClusterName *string
+}
+
+func (b0 ListPoliciesRequest_builder) Build() *ListPoliciesRequest {
+	m0 := &ListPoliciesRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ClusterName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_ClusterName = b.ClusterName
+	}
+	return m0
+}
+
 // ListPoliciesResponse returns the list of matching policies.
 type ListPoliciesResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The list of policies.
-	Policies      []*Policy `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Policies *[]*Policy             `protobuf:"bytes,1,rep,name=policies"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ListPoliciesResponse) Reset() {
@@ -361,48 +597,51 @@ func (x *ListPoliciesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListPoliciesResponse.ProtoReflect.Descriptor instead.
-func (*ListPoliciesResponse) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{6}
-}
-
 func (x *ListPoliciesResponse) GetPolicies() []*Policy {
 	if x != nil {
-		return x.Policies
+		if x.xxx_hidden_Policies != nil {
+			return *x.xxx_hidden_Policies
+		}
 	}
 	return nil
 }
 
+func (x *ListPoliciesResponse) SetPolicies(v []*Policy) {
+	x.xxx_hidden_Policies = &v
+}
+
+type ListPoliciesResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The list of policies.
+	Policies []*Policy
+}
+
+func (b0 ListPoliciesResponse_builder) Build() *ListPoliciesResponse {
+	m0 := &ListPoliciesResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Policies = &b.Policies
+	return m0
+}
+
 // Policy represents the configuration for autoscaling a specific workload.
 type Policy struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The unique identifier of the policy.
-	Id *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Reference to the target workload to scale.
-	Workload *WorkloadRef `protobuf:"bytes,3,opt,name=workload,proto3" json:"workload,omitempty"`
-	// Minimum number of replicas.
-	MinReplicas int32 `protobuf:"varint,4,opt,name=min_replicas,json=minReplicas,proto3" json:"min_replicas,omitempty"`
-	// Maximum number of replicas.
-	MaxReplicas int32 `protobuf:"varint,5,opt,name=max_replicas,json=maxReplicas,proto3" json:"max_replicas,omitempty"`
-	// Definitions of metrics to collect and aggregate.
-	Metrics []*MetricDefinition `protobuf:"bytes,6,rep,name=metrics,proto3" json:"metrics,omitempty"`
-	// Rules for activating/deactivating the workload (Scale to Zero).
-	Activation []*RecommenderDefinition `protobuf:"bytes,7,rep,name=activation,proto3" json:"activation,omitempty"`
-	// Rules for scaling the workload when active (Horizontal Scaling).
-	Scaling []*RecommenderDefinition `protobuf:"bytes,8,rep,name=scaling,proto3" json:"scaling,omitempty"`
-	// The label selector used to identify pods (e.g. "app=my-app").
-	Selector string `protobuf:"bytes,9,opt,name=selector,proto3" json:"selector,omitempty"`
-	// Definitions of the metrics owned by individual recommenders, keyed by
-	// recommender name.
-	//
-	// Metric names only need to be unique within their owner. The
-	// `recommender_name` field in the metric definition must match.
-	RecommenderMetrics map[string]*MetricDefinitionList `protobuf:"bytes,10,rep,name=recommender_metrics,json=recommenderMetrics,proto3" json:"recommender_metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// The tag that holds the hash of the subset of the policy fields that are modified externally.
-	// The etag shows the freshness of the policy and ensures no updates derived from old policy states are accepted.
-	Etag          string `protobuf:"bytes,11,opt,name=etag,proto3" json:"etag,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                         protoimpl.MessageState           `protogen:"opaque.v1"`
+	xxx_hidden_Id                 *PolicyId                        `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_Workload           *WorkloadRef                     `protobuf:"bytes,3,opt,name=workload"`
+	xxx_hidden_MinReplicas        int32                            `protobuf:"varint,4,opt,name=min_replicas,json=minReplicas"`
+	xxx_hidden_MaxReplicas        int32                            `protobuf:"varint,5,opt,name=max_replicas,json=maxReplicas"`
+	xxx_hidden_Metrics            *[]*MetricDefinition             `protobuf:"bytes,6,rep,name=metrics"`
+	xxx_hidden_Activation         *[]*RecommenderDefinition        `protobuf:"bytes,7,rep,name=activation"`
+	xxx_hidden_Scaling            *[]*RecommenderDefinition        `protobuf:"bytes,8,rep,name=scaling"`
+	xxx_hidden_Selector           *string                          `protobuf:"bytes,9,opt,name=selector"`
+	xxx_hidden_RecommenderMetrics map[string]*MetricDefinitionList `protobuf:"bytes,10,rep,name=recommender_metrics,json=recommenderMetrics" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Etag               *string                          `protobuf:"bytes,11,opt,name=etag"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *Policy) Reset() {
@@ -430,88 +669,267 @@ func (x *Policy) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Policy.ProtoReflect.Descriptor instead.
-func (*Policy) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{7}
-}
-
 func (x *Policy) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
 func (x *Policy) GetWorkload() *WorkloadRef {
 	if x != nil {
-		return x.Workload
+		return x.xxx_hidden_Workload
 	}
 	return nil
 }
 
 func (x *Policy) GetMinReplicas() int32 {
 	if x != nil {
-		return x.MinReplicas
+		return x.xxx_hidden_MinReplicas
 	}
 	return 0
 }
 
 func (x *Policy) GetMaxReplicas() int32 {
 	if x != nil {
-		return x.MaxReplicas
+		return x.xxx_hidden_MaxReplicas
 	}
 	return 0
 }
 
 func (x *Policy) GetMetrics() []*MetricDefinition {
 	if x != nil {
-		return x.Metrics
+		if x.xxx_hidden_Metrics != nil {
+			return *x.xxx_hidden_Metrics
+		}
 	}
 	return nil
 }
 
 func (x *Policy) GetActivation() []*RecommenderDefinition {
 	if x != nil {
-		return x.Activation
+		if x.xxx_hidden_Activation != nil {
+			return *x.xxx_hidden_Activation
+		}
 	}
 	return nil
 }
 
 func (x *Policy) GetScaling() []*RecommenderDefinition {
 	if x != nil {
-		return x.Scaling
+		if x.xxx_hidden_Scaling != nil {
+			return *x.xxx_hidden_Scaling
+		}
 	}
 	return nil
 }
 
 func (x *Policy) GetSelector() string {
 	if x != nil {
-		return x.Selector
+		if x.xxx_hidden_Selector != nil {
+			return *x.xxx_hidden_Selector
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *Policy) GetRecommenderMetrics() map[string]*MetricDefinitionList {
 	if x != nil {
-		return x.RecommenderMetrics
+		return x.xxx_hidden_RecommenderMetrics
 	}
 	return nil
 }
 
 func (x *Policy) GetEtag() string {
 	if x != nil {
-		return x.Etag
+		if x.xxx_hidden_Etag != nil {
+			return *x.xxx_hidden_Etag
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *Policy) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *Policy) SetWorkload(v *WorkloadRef) {
+	x.xxx_hidden_Workload = v
+}
+
+func (x *Policy) SetMinReplicas(v int32) {
+	x.xxx_hidden_MinReplicas = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 10)
+}
+
+func (x *Policy) SetMaxReplicas(v int32) {
+	x.xxx_hidden_MaxReplicas = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+}
+
+func (x *Policy) SetMetrics(v []*MetricDefinition) {
+	x.xxx_hidden_Metrics = &v
+}
+
+func (x *Policy) SetActivation(v []*RecommenderDefinition) {
+	x.xxx_hidden_Activation = &v
+}
+
+func (x *Policy) SetScaling(v []*RecommenderDefinition) {
+	x.xxx_hidden_Scaling = &v
+}
+
+func (x *Policy) SetSelector(v string) {
+	x.xxx_hidden_Selector = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 10)
+}
+
+func (x *Policy) SetRecommenderMetrics(v map[string]*MetricDefinitionList) {
+	x.xxx_hidden_RecommenderMetrics = v
+}
+
+func (x *Policy) SetEtag(v string) {
+	x.xxx_hidden_Etag = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 10)
+}
+
+func (x *Policy) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *Policy) HasWorkload() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Workload != nil
+}
+
+func (x *Policy) HasMinReplicas() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *Policy) HasMaxReplicas() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *Policy) HasSelector() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *Policy) HasEtag() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+}
+
+func (x *Policy) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+func (x *Policy) ClearWorkload() {
+	x.xxx_hidden_Workload = nil
+}
+
+func (x *Policy) ClearMinReplicas() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_MinReplicas = 0
+}
+
+func (x *Policy) ClearMaxReplicas() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_MaxReplicas = 0
+}
+
+func (x *Policy) ClearSelector() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_Selector = nil
+}
+
+func (x *Policy) ClearEtag() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	x.xxx_hidden_Etag = nil
+}
+
+type Policy_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The unique identifier of the policy.
+	Id *PolicyId
+	// Reference to the target workload to scale.
+	Workload *WorkloadRef
+	// Minimum number of replicas.
+	MinReplicas *int32
+	// Maximum number of replicas.
+	MaxReplicas *int32
+	// Definitions of metrics to collect and aggregate.
+	Metrics []*MetricDefinition
+	// Rules for activating/deactivating the workload (Scale to Zero).
+	Activation []*RecommenderDefinition
+	// Rules for scaling the workload when active (Horizontal Scaling).
+	Scaling []*RecommenderDefinition
+	// The label selector used to identify pods (e.g. "app=my-app").
+	Selector *string
+	// Definitions of the metrics owned by individual recommenders, keyed by
+	// recommender name.
+	//
+	// Metric names only need to be unique within their owner. The
+	// `recommender_name` field in the metric definition must match.
+	RecommenderMetrics map[string]*MetricDefinitionList
+	// The tag that holds the hash of the subset of the policy fields that are modified externally.
+	// The etag shows the freshness of the policy and ensures no updates derived from old policy states are accepted.
+	Etag *string
+}
+
+func (b0 Policy_builder) Build() *Policy {
+	m0 := &Policy{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	x.xxx_hidden_Workload = b.Workload
+	if b.MinReplicas != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 10)
+		x.xxx_hidden_MinReplicas = *b.MinReplicas
+	}
+	if b.MaxReplicas != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		x.xxx_hidden_MaxReplicas = *b.MaxReplicas
+	}
+	x.xxx_hidden_Metrics = &b.Metrics
+	x.xxx_hidden_Activation = &b.Activation
+	x.xxx_hidden_Scaling = &b.Scaling
+	if b.Selector != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 10)
+		x.xxx_hidden_Selector = b.Selector
+	}
+	x.xxx_hidden_RecommenderMetrics = b.RecommenderMetrics
+	if b.Etag != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 10)
+		x.xxx_hidden_Etag = b.Etag
+	}
+	return m0
+}
+
 // MetricDefinitionList is a list of metric definitions.
 type MetricDefinitionList struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The metric definitions.
-	Definitions   []*MetricDefinition `protobuf:"bytes,1,rep,name=definitions,proto3" json:"definitions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Definitions *[]*MetricDefinition   `protobuf:"bytes,1,rep,name=definitions"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MetricDefinitionList) Reset() {
@@ -539,33 +957,46 @@ func (x *MetricDefinitionList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricDefinitionList.ProtoReflect.Descriptor instead.
-func (*MetricDefinitionList) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{8}
-}
-
 func (x *MetricDefinitionList) GetDefinitions() []*MetricDefinition {
 	if x != nil {
-		return x.Definitions
+		if x.xxx_hidden_Definitions != nil {
+			return *x.xxx_hidden_Definitions
+		}
 	}
 	return nil
 }
 
+func (x *MetricDefinitionList) SetDefinitions(v []*MetricDefinition) {
+	x.xxx_hidden_Definitions = &v
+}
+
+type MetricDefinitionList_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The metric definitions.
+	Definitions []*MetricDefinition
+}
+
+func (b0 MetricDefinitionList_builder) Build() *MetricDefinitionList {
+	m0 := &MetricDefinitionList{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Definitions = &b.Definitions
+	return m0
+}
+
 // WorkloadRef identifies the Kubernetes resource to scale.
 type WorkloadRef struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// API Group (e.g., "apps").
-	Group string `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
-	// API Version (e.g., "v1").
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// Resource Kind (e.g., "Deployment").
-	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
-	// Name of the resource.
-	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	// Namespace of the resource.
-	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Group       *string                `protobuf:"bytes,1,opt,name=group"`
+	xxx_hidden_Version     *string                `protobuf:"bytes,2,opt,name=version"`
+	xxx_hidden_Kind        *string                `protobuf:"bytes,3,opt,name=kind"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,4,opt,name=name"`
+	xxx_hidden_Namespace   *string                `protobuf:"bytes,5,opt,name=namespace"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WorkloadRef) Reset() {
@@ -593,69 +1024,200 @@ func (x *WorkloadRef) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WorkloadRef.ProtoReflect.Descriptor instead.
-func (*WorkloadRef) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{9}
-}
-
 func (x *WorkloadRef) GetGroup() string {
 	if x != nil {
-		return x.Group
+		if x.xxx_hidden_Group != nil {
+			return *x.xxx_hidden_Group
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *WorkloadRef) GetVersion() string {
 	if x != nil {
-		return x.Version
+		if x.xxx_hidden_Version != nil {
+			return *x.xxx_hidden_Version
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *WorkloadRef) GetKind() string {
 	if x != nil {
-		return x.Kind
+		if x.xxx_hidden_Kind != nil {
+			return *x.xxx_hidden_Kind
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *WorkloadRef) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *WorkloadRef) GetNamespace() string {
 	if x != nil {
-		return x.Namespace
+		if x.xxx_hidden_Namespace != nil {
+			return *x.xxx_hidden_Namespace
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *WorkloadRef) SetGroup(v string) {
+	x.xxx_hidden_Group = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+}
+
+func (x *WorkloadRef) SetVersion(v string) {
+	x.xxx_hidden_Version = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+}
+
+func (x *WorkloadRef) SetKind(v string) {
+	x.xxx_hidden_Kind = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *WorkloadRef) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *WorkloadRef) SetNamespace(v string) {
+	x.xxx_hidden_Namespace = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+}
+
+func (x *WorkloadRef) HasGroup() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *WorkloadRef) HasVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *WorkloadRef) HasKind() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *WorkloadRef) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *WorkloadRef) HasNamespace() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *WorkloadRef) ClearGroup() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Group = nil
+}
+
+func (x *WorkloadRef) ClearVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Version = nil
+}
+
+func (x *WorkloadRef) ClearKind() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Kind = nil
+}
+
+func (x *WorkloadRef) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *WorkloadRef) ClearNamespace() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Namespace = nil
+}
+
+type WorkloadRef_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// API Group (e.g., "apps").
+	Group *string
+	// API Version (e.g., "v1").
+	Version *string
+	// Resource Kind (e.g., "Deployment").
+	Kind *string
+	// Name of the resource.
+	Name *string
+	// Namespace of the resource.
+	Namespace *string
+}
+
+func (b0 WorkloadRef_builder) Build() *WorkloadRef {
+	m0 := &WorkloadRef{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Group != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		x.xxx_hidden_Group = b.Group
+	}
+	if b.Version != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		x.xxx_hidden_Version = b.Version
+	}
+	if b.Kind != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		x.xxx_hidden_Kind = b.Kind
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Namespace != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_Namespace = b.Namespace
+	}
+	return m0
+}
+
 // MetricDefinition defines how to collect and process a metric.
 type MetricDefinition struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the metric (used as key in ControlMetrics).
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The name of the recommender that owns this metric. Empty for policy-wide metrics.
-	// The metric name is only unique within its recommender.
-	RecommenderName string `protobuf:"bytes,15,opt,name=recommender_name,json=recommenderName,proto3" json:"recommender_name,omitempty"`
-	// The provider class to use (e.g., "kubelet", "prometheus").
-	Provider string `protobuf:"bytes,2,opt,name=provider,proto3" json:"provider,omitempty"`
-	// Provider-specific parameters (e.g., "type": "cpu").
-	Params map[string]string `protobuf:"bytes,3,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Label filters to apply to raw samples before processing.
-	Filter map[string]string `protobuf:"bytes,5,rep,name=filter,proto3" json:"filter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// --- Intents ---
-	Gauge                *Gauge                `protobuf:"bytes,10,opt,name=gauge,proto3" json:"gauge,omitempty"`
-	Rate                 *Rate                 `protobuf:"bytes,11,opt,name=rate,proto3" json:"rate,omitempty"`
-	Distribution         *Distribution         `protobuf:"bytes,12,opt,name=distribution,proto3" json:"distribution,omitempty"`
-	DecayingDistribution *DecayingDistribution `protobuf:"bytes,13,opt,name=decaying_distribution,json=decayingDistribution,proto3" json:"decaying_distribution,omitempty"`
-	// The scope of the metric: "Global" (default), "Pod", "PodContainer", or "Container".
-	Scope         string `protobuf:"bytes,14,opt,name=scope,proto3" json:"scope,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name                 *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_RecommenderName      *string                `protobuf:"bytes,15,opt,name=recommender_name,json=recommenderName"`
+	xxx_hidden_Provider             *string                `protobuf:"bytes,2,opt,name=provider"`
+	xxx_hidden_Params               map[string]string      `protobuf:"bytes,3,rep,name=params" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Filter               map[string]string      `protobuf:"bytes,5,rep,name=filter" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Gauge                *Gauge                 `protobuf:"bytes,10,opt,name=gauge"`
+	xxx_hidden_Rate                 *Rate                  `protobuf:"bytes,11,opt,name=rate"`
+	xxx_hidden_Distribution         *Distribution          `protobuf:"bytes,12,opt,name=distribution"`
+	xxx_hidden_DecayingDistribution *DecayingDistribution  `protobuf:"bytes,13,opt,name=decaying_distribution,json=decayingDistribution"`
+	xxx_hidden_Scope                *string                `protobuf:"bytes,14,opt,name=scope"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
 }
 
 func (x *MetricDefinition) Reset() {
@@ -683,87 +1245,283 @@ func (x *MetricDefinition) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricDefinition.ProtoReflect.Descriptor instead.
-func (*MetricDefinition) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{10}
-}
-
 func (x *MetricDefinition) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricDefinition) GetRecommenderName() string {
 	if x != nil {
-		return x.RecommenderName
+		if x.xxx_hidden_RecommenderName != nil {
+			return *x.xxx_hidden_RecommenderName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricDefinition) GetProvider() string {
 	if x != nil {
-		return x.Provider
+		if x.xxx_hidden_Provider != nil {
+			return *x.xxx_hidden_Provider
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricDefinition) GetParams() map[string]string {
 	if x != nil {
-		return x.Params
+		return x.xxx_hidden_Params
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetFilter() map[string]string {
 	if x != nil {
-		return x.Filter
+		return x.xxx_hidden_Filter
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetGauge() *Gauge {
 	if x != nil {
-		return x.Gauge
+		return x.xxx_hidden_Gauge
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetRate() *Rate {
 	if x != nil {
-		return x.Rate
+		return x.xxx_hidden_Rate
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetDistribution() *Distribution {
 	if x != nil {
-		return x.Distribution
+		return x.xxx_hidden_Distribution
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetDecayingDistribution() *DecayingDistribution {
 	if x != nil {
-		return x.DecayingDistribution
+		return x.xxx_hidden_DecayingDistribution
 	}
 	return nil
 }
 
 func (x *MetricDefinition) GetScope() string {
 	if x != nil {
-		return x.Scope
+		if x.xxx_hidden_Scope != nil {
+			return *x.xxx_hidden_Scope
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *MetricDefinition) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+}
+
+func (x *MetricDefinition) SetRecommenderName(v string) {
+	x.xxx_hidden_RecommenderName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 10)
+}
+
+func (x *MetricDefinition) SetProvider(v string) {
+	x.xxx_hidden_Provider = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 10)
+}
+
+func (x *MetricDefinition) SetParams(v map[string]string) {
+	x.xxx_hidden_Params = v
+}
+
+func (x *MetricDefinition) SetFilter(v map[string]string) {
+	x.xxx_hidden_Filter = v
+}
+
+func (x *MetricDefinition) SetGauge(v *Gauge) {
+	x.xxx_hidden_Gauge = v
+}
+
+func (x *MetricDefinition) SetRate(v *Rate) {
+	x.xxx_hidden_Rate = v
+}
+
+func (x *MetricDefinition) SetDistribution(v *Distribution) {
+	x.xxx_hidden_Distribution = v
+}
+
+func (x *MetricDefinition) SetDecayingDistribution(v *DecayingDistribution) {
+	x.xxx_hidden_DecayingDistribution = v
+}
+
+func (x *MetricDefinition) SetScope(v string) {
+	x.xxx_hidden_Scope = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 10)
+}
+
+func (x *MetricDefinition) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *MetricDefinition) HasRecommenderName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *MetricDefinition) HasProvider() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *MetricDefinition) HasGauge() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Gauge != nil
+}
+
+func (x *MetricDefinition) HasRate() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Rate != nil
+}
+
+func (x *MetricDefinition) HasDistribution() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Distribution != nil
+}
+
+func (x *MetricDefinition) HasDecayingDistribution() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_DecayingDistribution != nil
+}
+
+func (x *MetricDefinition) HasScope() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+}
+
+func (x *MetricDefinition) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *MetricDefinition) ClearRecommenderName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_RecommenderName = nil
+}
+
+func (x *MetricDefinition) ClearProvider() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Provider = nil
+}
+
+func (x *MetricDefinition) ClearGauge() {
+	x.xxx_hidden_Gauge = nil
+}
+
+func (x *MetricDefinition) ClearRate() {
+	x.xxx_hidden_Rate = nil
+}
+
+func (x *MetricDefinition) ClearDistribution() {
+	x.xxx_hidden_Distribution = nil
+}
+
+func (x *MetricDefinition) ClearDecayingDistribution() {
+	x.xxx_hidden_DecayingDistribution = nil
+}
+
+func (x *MetricDefinition) ClearScope() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	x.xxx_hidden_Scope = nil
+}
+
+type MetricDefinition_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the metric (used as key in ControlMetrics).
+	Name *string
+	// The name of the recommender that owns this metric. Empty for policy-wide metrics.
+	// The metric name is only unique within its recommender.
+	RecommenderName *string
+	// The provider class to use (e.g., "kubelet", "prometheus").
+	Provider *string
+	// Provider-specific parameters (e.g., "type": "cpu").
+	Params map[string]string
+	// Label filters to apply to raw samples before processing.
+	Filter map[string]string
+	// --- Intents ---
+	Gauge                *Gauge
+	Rate                 *Rate
+	Distribution         *Distribution
+	DecayingDistribution *DecayingDistribution
+	// The scope of the metric: "Global" (default), "Pod", "PodContainer", or "Container".
+	Scope *string
+}
+
+func (b0 MetricDefinition_builder) Build() *MetricDefinition {
+	m0 := &MetricDefinition{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.RecommenderName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 10)
+		x.xxx_hidden_RecommenderName = b.RecommenderName
+	}
+	if b.Provider != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 10)
+		x.xxx_hidden_Provider = b.Provider
+	}
+	x.xxx_hidden_Params = b.Params
+	x.xxx_hidden_Filter = b.Filter
+	x.xxx_hidden_Gauge = b.Gauge
+	x.xxx_hidden_Rate = b.Rate
+	x.xxx_hidden_Distribution = b.Distribution
+	x.xxx_hidden_DecayingDistribution = b.DecayingDistribution
+	if b.Scope != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 10)
+		x.xxx_hidden_Scope = b.Scope
+	}
+	return m0
+}
+
 type Gauge struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Pod aggregation method: "Avg", "Sum", "Max", "Min".
-	Aggregation   string `protobuf:"bytes,1,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Aggregation *string                `protobuf:"bytes,1,opt,name=aggregation"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Gauge) Reset() {
@@ -791,26 +1549,59 @@ func (x *Gauge) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Gauge.ProtoReflect.Descriptor instead.
-func (*Gauge) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{11}
-}
-
 func (x *Gauge) GetAggregation() string {
 	if x != nil {
-		return x.Aggregation
+		if x.xxx_hidden_Aggregation != nil {
+			return *x.xxx_hidden_Aggregation
+		}
+		return ""
 	}
 	return ""
 }
 
-type Rate struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The temporal period for rate calculation.
-	Window *durationpb.Duration `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"`
+func (x *Gauge) SetAggregation(v string) {
+	x.xxx_hidden_Aggregation = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *Gauge) HasAggregation() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *Gauge) ClearAggregation() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Aggregation = nil
+}
+
+type Gauge_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
 	// Pod aggregation method: "Avg", "Sum", "Max", "Min".
-	Aggregation   string `protobuf:"bytes,2,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Aggregation *string
+}
+
+func (b0 Gauge_builder) Build() *Gauge {
+	m0 := &Gauge{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Aggregation != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Aggregation = b.Aggregation
+	}
+	return m0
+}
+
+type Rate struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Window      *durationpb.Duration   `protobuf:"bytes,1,opt,name=window"`
+	xxx_hidden_Aggregation *string                `protobuf:"bytes,2,opt,name=aggregation"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Rate) Reset() {
@@ -838,33 +1629,84 @@ func (x *Rate) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Rate.ProtoReflect.Descriptor instead.
-func (*Rate) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{12}
-}
-
 func (x *Rate) GetWindow() *durationpb.Duration {
 	if x != nil {
-		return x.Window
+		return x.xxx_hidden_Window
 	}
 	return nil
 }
 
 func (x *Rate) GetAggregation() string {
 	if x != nil {
-		return x.Aggregation
+		if x.xxx_hidden_Aggregation != nil {
+			return *x.xxx_hidden_Aggregation
+		}
+		return ""
 	}
 	return ""
 }
 
-type Distribution struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The percentile to extract (e.g. "p99").
-	Percentile string `protobuf:"bytes,1,opt,name=percentile,proto3" json:"percentile,omitempty"`
+func (x *Rate) SetWindow(v *durationpb.Duration) {
+	x.xxx_hidden_Window = v
+}
+
+func (x *Rate) SetAggregation(v string) {
+	x.xxx_hidden_Aggregation = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *Rate) HasWindow() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Window != nil
+}
+
+func (x *Rate) HasAggregation() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *Rate) ClearWindow() {
+	x.xxx_hidden_Window = nil
+}
+
+func (x *Rate) ClearAggregation() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Aggregation = nil
+}
+
+type Rate_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The temporal period for rate calculation.
+	Window *durationpb.Duration
 	// Pod aggregation method: "Avg", "Sum", "Max", "Min".
-	Aggregation   string `protobuf:"bytes,2,opt,name=aggregation,proto3" json:"aggregation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Aggregation *string
+}
+
+func (b0 Rate_builder) Build() *Rate {
+	m0 := &Rate{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Window = b.Window
+	if b.Aggregation != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Aggregation = b.Aggregation
+	}
+	return m0
+}
+
+type Distribution struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Percentile  *string                `protobuf:"bytes,1,opt,name=percentile"`
+	xxx_hidden_Aggregation *string                `protobuf:"bytes,2,opt,name=aggregation"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Distribution) Reset() {
@@ -892,37 +1734,94 @@ func (x *Distribution) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Distribution.ProtoReflect.Descriptor instead.
-func (*Distribution) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{13}
-}
-
 func (x *Distribution) GetPercentile() string {
 	if x != nil {
-		return x.Percentile
+		if x.xxx_hidden_Percentile != nil {
+			return *x.xxx_hidden_Percentile
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *Distribution) GetAggregation() string {
 	if x != nil {
-		return x.Aggregation
+		if x.xxx_hidden_Aggregation != nil {
+			return *x.xxx_hidden_Aggregation
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *Distribution) SetPercentile(v string) {
+	x.xxx_hidden_Percentile = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *Distribution) SetAggregation(v string) {
+	x.xxx_hidden_Aggregation = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *Distribution) HasPercentile() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *Distribution) HasAggregation() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *Distribution) ClearPercentile() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Percentile = nil
+}
+
+func (x *Distribution) ClearAggregation() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Aggregation = nil
+}
+
+type Distribution_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The percentile to extract (e.g. "p99").
+	Percentile *string
+	// Pod aggregation method: "Avg", "Sum", "Max", "Min".
+	Aggregation *string
+}
+
+func (b0 Distribution_builder) Build() *Distribution {
+	m0 := &Distribution{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Percentile != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Percentile = b.Percentile
+	}
+	if b.Aggregation != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Aggregation = b.Aggregation
+	}
+	return m0
+}
+
 type DecayingDistribution struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Half-life of the samples weight.
-	HalfLife *durationpb.Duration `protobuf:"bytes,1,opt,name=half_life,json=halfLife,proto3" json:"half_life,omitempty"`
-	// Bucket size string (e.g. "0.1").
-	BucketSize string `protobuf:"bytes,2,opt,name=bucket_size,json=bucketSize,proto3" json:"bucket_size,omitempty"`
-	// The percentile to extract (e.g. "p100").
-	Percentile string `protobuf:"bytes,3,opt,name=percentile,proto3" json:"percentile,omitempty"`
-	// If set, treat input as Counter and calculate rate over this window before sampling.
-	Rate          *durationpb.Duration `protobuf:"bytes,4,opt,name=rate,proto3" json:"rate,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_HalfLife    *durationpb.Duration   `protobuf:"bytes,1,opt,name=half_life,json=halfLife"`
+	xxx_hidden_BucketSize  *string                `protobuf:"bytes,2,opt,name=bucket_size,json=bucketSize"`
+	xxx_hidden_Percentile  *string                `protobuf:"bytes,3,opt,name=percentile"`
+	xxx_hidden_Rate        *durationpb.Duration   `protobuf:"bytes,4,opt,name=rate"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *DecayingDistribution) Reset() {
@@ -950,54 +1849,146 @@ func (x *DecayingDistribution) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DecayingDistribution.ProtoReflect.Descriptor instead.
-func (*DecayingDistribution) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{14}
-}
-
 func (x *DecayingDistribution) GetHalfLife() *durationpb.Duration {
 	if x != nil {
-		return x.HalfLife
+		return x.xxx_hidden_HalfLife
 	}
 	return nil
 }
 
 func (x *DecayingDistribution) GetBucketSize() string {
 	if x != nil {
-		return x.BucketSize
+		if x.xxx_hidden_BucketSize != nil {
+			return *x.xxx_hidden_BucketSize
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *DecayingDistribution) GetPercentile() string {
 	if x != nil {
-		return x.Percentile
+		if x.xxx_hidden_Percentile != nil {
+			return *x.xxx_hidden_Percentile
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *DecayingDistribution) GetRate() *durationpb.Duration {
 	if x != nil {
-		return x.Rate
+		return x.xxx_hidden_Rate
 	}
 	return nil
 }
 
+func (x *DecayingDistribution) SetHalfLife(v *durationpb.Duration) {
+	x.xxx_hidden_HalfLife = v
+}
+
+func (x *DecayingDistribution) SetBucketSize(v string) {
+	x.xxx_hidden_BucketSize = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *DecayingDistribution) SetPercentile(v string) {
+	x.xxx_hidden_Percentile = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *DecayingDistribution) SetRate(v *durationpb.Duration) {
+	x.xxx_hidden_Rate = v
+}
+
+func (x *DecayingDistribution) HasHalfLife() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_HalfLife != nil
+}
+
+func (x *DecayingDistribution) HasBucketSize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *DecayingDistribution) HasPercentile() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *DecayingDistribution) HasRate() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Rate != nil
+}
+
+func (x *DecayingDistribution) ClearHalfLife() {
+	x.xxx_hidden_HalfLife = nil
+}
+
+func (x *DecayingDistribution) ClearBucketSize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_BucketSize = nil
+}
+
+func (x *DecayingDistribution) ClearPercentile() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Percentile = nil
+}
+
+func (x *DecayingDistribution) ClearRate() {
+	x.xxx_hidden_Rate = nil
+}
+
+type DecayingDistribution_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Half-life of the samples weight.
+	HalfLife *durationpb.Duration
+	// Bucket size string (e.g. "0.1").
+	BucketSize *string
+	// The percentile to extract (e.g. "p100").
+	Percentile *string
+	// If set, treat input as Counter and calculate rate over this window before sampling.
+	Rate *durationpb.Duration
+}
+
+func (b0 DecayingDistribution_builder) Build() *DecayingDistribution {
+	m0 := &DecayingDistribution{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_HalfLife = b.HalfLife
+	if b.BucketSize != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_BucketSize = b.BucketSize
+	}
+	if b.Percentile != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_Percentile = b.Percentile
+	}
+	x.xxx_hidden_Rate = b.Rate
+	return m0
+}
+
 // RecommenderDefinition configures a specific scaling algorithm.
 type RecommenderDefinition struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The class of recommender to use (e.g., "linear-fast").
-	Recommender string `protobuf:"bytes,1,opt,name=recommender,proto3" json:"recommender,omitempty"`
-	// Unique name for this recommender instance.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Mode of operation: "Active" (default) or "DryRun".
-	Mode string `protobuf:"bytes,3,opt,name=mode,proto3" json:"mode,omitempty"`
-	// Algorithm-specific parameters.
-	Params map[string]string `protobuf:"bytes,4,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// The type of recommender algorithm (e.g. "Linear", "Threshold").
-	Type          string `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Recommender *string                `protobuf:"bytes,1,opt,name=recommender"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Mode        *string                `protobuf:"bytes,3,opt,name=mode"`
+	xxx_hidden_Params      map[string]string      `protobuf:"bytes,4,rep,name=params" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Type        *string                `protobuf:"bytes,5,opt,name=type"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *RecommenderDefinition) Reset() {
@@ -1025,55 +2016,171 @@ func (x *RecommenderDefinition) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RecommenderDefinition.ProtoReflect.Descriptor instead.
-func (*RecommenderDefinition) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{15}
-}
-
 func (x *RecommenderDefinition) GetRecommender() string {
 	if x != nil {
-		return x.Recommender
+		if x.xxx_hidden_Recommender != nil {
+			return *x.xxx_hidden_Recommender
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderDefinition) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderDefinition) GetMode() string {
 	if x != nil {
-		return x.Mode
+		if x.xxx_hidden_Mode != nil {
+			return *x.xxx_hidden_Mode
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderDefinition) GetParams() map[string]string {
 	if x != nil {
-		return x.Params
+		return x.xxx_hidden_Params
 	}
 	return nil
 }
 
 func (x *RecommenderDefinition) GetType() string {
 	if x != nil {
-		return x.Type
+		if x.xxx_hidden_Type != nil {
+			return *x.xxx_hidden_Type
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *RecommenderDefinition) SetRecommender(v string) {
+	x.xxx_hidden_Recommender = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+}
+
+func (x *RecommenderDefinition) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+}
+
+func (x *RecommenderDefinition) SetMode(v string) {
+	x.xxx_hidden_Mode = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *RecommenderDefinition) SetParams(v map[string]string) {
+	x.xxx_hidden_Params = v
+}
+
+func (x *RecommenderDefinition) SetType(v string) {
+	x.xxx_hidden_Type = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+}
+
+func (x *RecommenderDefinition) HasRecommender() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RecommenderDefinition) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *RecommenderDefinition) HasMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *RecommenderDefinition) HasType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *RecommenderDefinition) ClearRecommender() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Recommender = nil
+}
+
+func (x *RecommenderDefinition) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *RecommenderDefinition) ClearMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Mode = nil
+}
+
+func (x *RecommenderDefinition) ClearType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Type = nil
+}
+
+type RecommenderDefinition_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The class of recommender to use (e.g., "linear-fast").
+	Recommender *string
+	// Unique name for this recommender instance.
+	Name *string
+	// Mode of operation: "Active" (default) or "DryRun".
+	Mode *string
+	// Algorithm-specific parameters.
+	Params map[string]string
+	// The type of recommender algorithm (e.g. "Linear", "Threshold").
+	Type *string
+}
+
+func (b0 RecommenderDefinition_builder) Build() *RecommenderDefinition {
+	m0 := &RecommenderDefinition{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Recommender != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		x.xxx_hidden_Recommender = b.Recommender
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Mode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		x.xxx_hidden_Mode = b.Mode
+	}
+	x.xxx_hidden_Params = b.Params
+	if b.Type != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_Type = b.Type
+	}
+	return m0
+}
+
 // UpdateWorkloadRequest synchronizes the Server's view of the workload.
 type UpdateWorkloadRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy this workload belongs to.
-	Id *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The current state of the workload (pods).
-	Workload      *Workload `protobuf:"bytes,2,opt,name=workload,proto3" json:"workload,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id       *PolicyId              `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_Workload *Workload              `protobuf:"bytes,2,opt,name=workload"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateWorkloadRequest) Reset() {
@@ -1101,30 +2208,72 @@ func (x *UpdateWorkloadRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateWorkloadRequest.ProtoReflect.Descriptor instead.
-func (*UpdateWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{16}
-}
-
 func (x *UpdateWorkloadRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
 func (x *UpdateWorkloadRequest) GetWorkload() *Workload {
 	if x != nil {
-		return x.Workload
+		return x.xxx_hidden_Workload
 	}
 	return nil
 }
 
+func (x *UpdateWorkloadRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *UpdateWorkloadRequest) SetWorkload(v *Workload) {
+	x.xxx_hidden_Workload = v
+}
+
+func (x *UpdateWorkloadRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *UpdateWorkloadRequest) HasWorkload() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Workload != nil
+}
+
+func (x *UpdateWorkloadRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+func (x *UpdateWorkloadRequest) ClearWorkload() {
+	x.xxx_hidden_Workload = nil
+}
+
+type UpdateWorkloadRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy this workload belongs to.
+	Id *PolicyId
+	// The current state of the workload (pods).
+	Workload *Workload
+}
+
+func (b0 UpdateWorkloadRequest_builder) Build() *UpdateWorkloadRequest {
+	m0 := &UpdateWorkloadRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	x.xxx_hidden_Workload = b.Workload
+	return m0
+}
+
 // GetWorkloadRequest retrieves the Server's view of the workload of a policy.
 type GetWorkloadRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy to fetch the workload for.
-	Id            *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id *PolicyId              `protobuf:"bytes,1,opt,name=id"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1154,25 +2303,49 @@ func (x *GetWorkloadRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetWorkloadRequest.ProtoReflect.Descriptor instead.
-func (*GetWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{17}
-}
-
 func (x *GetWorkloadRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
+func (x *GetWorkloadRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *GetWorkloadRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *GetWorkloadRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+type GetWorkloadRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy to fetch the workload for.
+	Id *PolicyId
+}
+
+func (b0 GetWorkloadRequest_builder) Build() *GetWorkloadRequest {
+	m0 := &GetWorkloadRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	return m0
+}
+
 // Workload represents the set of pods governed by a policy.
 type Workload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of known pods.
-	Pods          []*PodState `protobuf:"bytes,1,rep,name=pods,proto3" json:"pods,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Pods *[]*PodState           `protobuf:"bytes,1,rep,name=pods"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Workload) Reset() {
@@ -1200,41 +2373,49 @@ func (x *Workload) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Workload.ProtoReflect.Descriptor instead.
-func (*Workload) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{18}
-}
-
 func (x *Workload) GetPods() []*PodState {
 	if x != nil {
-		return x.Pods
+		if x.xxx_hidden_Pods != nil {
+			return *x.xxx_hidden_Pods
+		}
 	}
 	return nil
 }
 
+func (x *Workload) SetPods(v []*PodState) {
+	x.xxx_hidden_Pods = &v
+}
+
+type Workload_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// List of known pods.
+	Pods []*PodState
+}
+
+func (b0 Workload_builder) Build() *Workload {
+	m0 := &Workload{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Pods = &b.Pods
+	return m0
+}
+
 // PodState represents a single pod instance.
 type PodState struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the pod.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The node where the pod is running.
-	NodeName string `protobuf:"bytes,2,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
-	// Whether the pod's Ready condition is currently true.
-	IsReady bool `protobuf:"varint,3,opt,name=is_ready,json=isReady,proto3" json:"is_ready,omitempty"`
-	// State of all the pod containers.
-	Containers []*ContainerState `protobuf:"bytes,4,rep,name=containers,proto3" json:"containers,omitempty"`
-	// The pod phase (e.g. "Pending", "Running", "Succeeded", "Failed").
-	Phase string `protobuf:"bytes,5,opt,name=phase,proto3" json:"phase,omitempty"`
-	// When the pod was acknowledged by the kubelet. Unset until then.
-	StartTime *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
-	// When the pod's Ready condition last changed. Unset if the pod has no
-	// Ready condition yet.
-	ReadyLastTransitionTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ready_last_transition_time,json=readyLastTransitionTime,proto3" json:"ready_last_transition_time,omitempty"`
-	// When the pod's deletion was requested (graceful shutdown in progress).
-	// Unset if it wasn't.
-	DeletionTimestamp *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=deletion_timestamp,json=deletionTimestamp,proto3" json:"deletion_timestamp,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name                    *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_NodeName                *string                `protobuf:"bytes,2,opt,name=node_name,json=nodeName"`
+	xxx_hidden_IsReady                 bool                   `protobuf:"varint,3,opt,name=is_ready,json=isReady"`
+	xxx_hidden_Containers              *[]*ContainerState     `protobuf:"bytes,4,rep,name=containers"`
+	xxx_hidden_Phase                   *string                `protobuf:"bytes,5,opt,name=phase"`
+	xxx_hidden_StartTime               *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=start_time,json=startTime"`
+	xxx_hidden_ReadyLastTransitionTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ready_last_transition_time,json=readyLastTransitionTime"`
+	xxx_hidden_DeletionTimestamp       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=deletion_timestamp,json=deletionTimestamp"`
+	XXX_raceDetectHookData             protoimpl.RaceDetectHookData
+	XXX_presence                       [1]uint32
+	unknownFields                      protoimpl.UnknownFields
+	sizeCache                          protoimpl.SizeCache
 }
 
 func (x *PodState) Reset() {
@@ -1262,78 +2443,250 @@ func (x *PodState) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PodState.ProtoReflect.Descriptor instead.
-func (*PodState) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{19}
-}
-
 func (x *PodState) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PodState) GetNodeName() string {
 	if x != nil {
-		return x.NodeName
+		if x.xxx_hidden_NodeName != nil {
+			return *x.xxx_hidden_NodeName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PodState) GetIsReady() bool {
 	if x != nil {
-		return x.IsReady
+		return x.xxx_hidden_IsReady
 	}
 	return false
 }
 
 func (x *PodState) GetContainers() []*ContainerState {
 	if x != nil {
-		return x.Containers
+		if x.xxx_hidden_Containers != nil {
+			return *x.xxx_hidden_Containers
+		}
 	}
 	return nil
 }
 
 func (x *PodState) GetPhase() string {
 	if x != nil {
-		return x.Phase
+		if x.xxx_hidden_Phase != nil {
+			return *x.xxx_hidden_Phase
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PodState) GetStartTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.StartTime
+		return x.xxx_hidden_StartTime
 	}
 	return nil
 }
 
 func (x *PodState) GetReadyLastTransitionTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.ReadyLastTransitionTime
+		return x.xxx_hidden_ReadyLastTransitionTime
 	}
 	return nil
 }
 
 func (x *PodState) GetDeletionTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.DeletionTimestamp
+		return x.xxx_hidden_DeletionTimestamp
 	}
 	return nil
 }
 
+func (x *PodState) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
+}
+
+func (x *PodState) SetNodeName(v string) {
+	x.xxx_hidden_NodeName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
+}
+
+func (x *PodState) SetIsReady(v bool) {
+	x.xxx_hidden_IsReady = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
+}
+
+func (x *PodState) SetContainers(v []*ContainerState) {
+	x.xxx_hidden_Containers = &v
+}
+
+func (x *PodState) SetPhase(v string) {
+	x.xxx_hidden_Phase = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 8)
+}
+
+func (x *PodState) SetStartTime(v *timestamppb.Timestamp) {
+	x.xxx_hidden_StartTime = v
+}
+
+func (x *PodState) SetReadyLastTransitionTime(v *timestamppb.Timestamp) {
+	x.xxx_hidden_ReadyLastTransitionTime = v
+}
+
+func (x *PodState) SetDeletionTimestamp(v *timestamppb.Timestamp) {
+	x.xxx_hidden_DeletionTimestamp = v
+}
+
+func (x *PodState) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *PodState) HasNodeName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *PodState) HasIsReady() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *PodState) HasPhase() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *PodState) HasStartTime() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_StartTime != nil
+}
+
+func (x *PodState) HasReadyLastTransitionTime() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ReadyLastTransitionTime != nil
+}
+
+func (x *PodState) HasDeletionTimestamp() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_DeletionTimestamp != nil
+}
+
+func (x *PodState) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *PodState) ClearNodeName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_NodeName = nil
+}
+
+func (x *PodState) ClearIsReady() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_IsReady = false
+}
+
+func (x *PodState) ClearPhase() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Phase = nil
+}
+
+func (x *PodState) ClearStartTime() {
+	x.xxx_hidden_StartTime = nil
+}
+
+func (x *PodState) ClearReadyLastTransitionTime() {
+	x.xxx_hidden_ReadyLastTransitionTime = nil
+}
+
+func (x *PodState) ClearDeletionTimestamp() {
+	x.xxx_hidden_DeletionTimestamp = nil
+}
+
+type PodState_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the pod.
+	Name *string
+	// The node where the pod is running.
+	NodeName *string
+	// Whether the pod's Ready condition is currently true.
+	IsReady *bool
+	// State of all the pod containers.
+	Containers []*ContainerState
+	// The pod phase (e.g. "Pending", "Running", "Succeeded", "Failed").
+	Phase *string
+	// When the pod was acknowledged by the kubelet. Unset until then.
+	StartTime *timestamppb.Timestamp
+	// When the pod's Ready condition last changed. Unset if the pod has no
+	// Ready condition yet.
+	ReadyLastTransitionTime *timestamppb.Timestamp
+	// When the pod's deletion was requested (graceful shutdown in progress).
+	// Unset if it wasn't.
+	DeletionTimestamp *timestamppb.Timestamp
+}
+
+func (b0 PodState_builder) Build() *PodState {
+	m0 := &PodState{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.NodeName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
+		x.xxx_hidden_NodeName = b.NodeName
+	}
+	if b.IsReady != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
+		x.xxx_hidden_IsReady = *b.IsReady
+	}
+	x.xxx_hidden_Containers = &b.Containers
+	if b.Phase != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 8)
+		x.xxx_hidden_Phase = b.Phase
+	}
+	x.xxx_hidden_StartTime = b.StartTime
+	x.xxx_hidden_ReadyLastTransitionTime = b.ReadyLastTransitionTime
+	x.xxx_hidden_DeletionTimestamp = b.DeletionTimestamp
+	return m0
+}
+
 // ContainerState represents the state of a given container instance.
 type ContainerState struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the container.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Maps a resource to its target (i.e. spec) requested value (e.g. 'cpu: 5m', 'memory: 10Mi').
-	Requests map[string]string `protobuf:"bytes,2,rep,name=requests,proto3" json:"requests,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Maps a resource to its target (i.e. spec) limit value (e.g. 'cpu: 500m', 'memory: 1Gi').
-	Limits        map[string]string `protobuf:"bytes,3,rep,name=limits,proto3" json:"limits,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Requests    map[string]string      `protobuf:"bytes,2,rep,name=requests" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Limits      map[string]string      `protobuf:"bytes,3,rep,name=limits" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ContainerState) Reset() {
@@ -1361,44 +2714,88 @@ func (x *ContainerState) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ContainerState.ProtoReflect.Descriptor instead.
-func (*ContainerState) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{20}
-}
-
 func (x *ContainerState) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ContainerState) GetRequests() map[string]string {
 	if x != nil {
-		return x.Requests
+		return x.xxx_hidden_Requests
 	}
 	return nil
 }
 
 func (x *ContainerState) GetLimits() map[string]string {
 	if x != nil {
-		return x.Limits
+		return x.xxx_hidden_Limits
 	}
 	return nil
 }
 
+func (x *ContainerState) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ContainerState) SetRequests(v map[string]string) {
+	x.xxx_hidden_Requests = v
+}
+
+func (x *ContainerState) SetLimits(v map[string]string) {
+	x.xxx_hidden_Limits = v
+}
+
+func (x *ContainerState) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ContainerState) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+type ContainerState_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the container.
+	Name *string
+	// Maps a resource to its target (i.e. spec) requested value (e.g. 'cpu: 5m', 'memory: 10Mi').
+	Requests map[string]string
+	// Maps a resource to its target (i.e. spec) limit value (e.g. 'cpu: 500m', 'memory: 1Gi').
+	Limits map[string]string
+}
+
+func (b0 ContainerState_builder) Build() *ContainerState {
+	m0 := &ContainerState{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	x.xxx_hidden_Requests = b.Requests
+	x.xxx_hidden_Limits = b.Limits
+	return m0
+}
+
 // GetControlMetricsRequest retrieves aggregated metrics for a policy.
 type GetControlMetricsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy to fetch metrics for.
-	Id *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Returns only the metrics owned by the specified recommender, as defined in
-	// Policy.recommender_metrics. If omitted, returns only the policy-wide
-	// metrics, i.e. those not owned by a specific recommender.
-	// Workload-level information (ready replicas, timestamp) is always reported.
-	RecommenderName string `protobuf:"bytes,2,opt,name=recommender_name,json=recommenderName,proto3" json:"recommender_name,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id              *PolicyId              `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_RecommenderName *string                `protobuf:"bytes,2,opt,name=recommender_name,json=recommenderName"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *GetControlMetricsRequest) Reset() {
@@ -1426,32 +2823,85 @@ func (x *GetControlMetricsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetControlMetricsRequest.ProtoReflect.Descriptor instead.
-func (*GetControlMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{21}
-}
-
 func (x *GetControlMetricsRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
 func (x *GetControlMetricsRequest) GetRecommenderName() string {
 	if x != nil {
-		return x.RecommenderName
+		if x.xxx_hidden_RecommenderName != nil {
+			return *x.xxx_hidden_RecommenderName
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *GetControlMetricsRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *GetControlMetricsRequest) SetRecommenderName(v string) {
+	x.xxx_hidden_RecommenderName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *GetControlMetricsRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *GetControlMetricsRequest) HasRecommenderName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *GetControlMetricsRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+func (x *GetControlMetricsRequest) ClearRecommenderName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_RecommenderName = nil
+}
+
+type GetControlMetricsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy to fetch metrics for.
+	Id *PolicyId
+	// Returns only the metrics owned by the specified recommender, as defined in
+	// Policy.recommender_metrics. If omitted, returns only the policy-wide
+	// metrics, i.e. those not owned by a specific recommender.
+	// Workload-level information (ready replicas, timestamp) is always reported.
+	RecommenderName *string
+}
+
+func (b0 GetControlMetricsRequest_builder) Build() *GetControlMetricsRequest {
+	m0 := &GetControlMetricsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	if b.RecommenderName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_RecommenderName = b.RecommenderName
+	}
+	return m0
+}
+
 // A set of control metric values.
 type MetricValues struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Maps metric names to their values.
-	Values        map[string]float64 `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Values map[string]float64     `protobuf:"bytes,1,rep,name=values" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MetricValues) Reset() {
@@ -1479,25 +2929,38 @@ func (x *MetricValues) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricValues.ProtoReflect.Descriptor instead.
-func (*MetricValues) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{22}
-}
-
 func (x *MetricValues) GetValues() map[string]float64 {
 	if x != nil {
-		return x.Values
+		return x.xxx_hidden_Values
 	}
 	return nil
 }
 
+func (x *MetricValues) SetValues(v map[string]float64) {
+	x.xxx_hidden_Values = v
+}
+
+type MetricValues_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Maps metric names to their values.
+	Values map[string]float64
+}
+
+func (b0 MetricValues_builder) Build() *MetricValues {
+	m0 := &MetricValues{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Values = b.Values
+	return m0
+}
+
 // ContainerMetrics contains control metrics for specific containers.
 type ContainerMetrics struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Metrics sourced from specific containers, keyed by metric name.
-	ContainerMetrics map[string]*MetricValues `protobuf:"bytes,1,rep,name=container_metrics,json=containerMetrics,proto3" json:"container_metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                       protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_ContainerMetrics map[string]*MetricValues `protobuf:"bytes,1,rep,name=container_metrics,json=containerMetrics" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *ContainerMetrics) Reset() {
@@ -1525,35 +2988,45 @@ func (x *ContainerMetrics) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ContainerMetrics.ProtoReflect.Descriptor instead.
-func (*ContainerMetrics) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{23}
-}
-
 func (x *ContainerMetrics) GetContainerMetrics() map[string]*MetricValues {
 	if x != nil {
-		return x.ContainerMetrics
+		return x.xxx_hidden_ContainerMetrics
 	}
 	return nil
 }
 
+func (x *ContainerMetrics) SetContainerMetrics(v map[string]*MetricValues) {
+	x.xxx_hidden_ContainerMetrics = v
+}
+
+type ContainerMetrics_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Metrics sourced from specific containers, keyed by metric name.
+	ContainerMetrics map[string]*MetricValues
+}
+
+func (b0 ContainerMetrics_builder) Build() *ContainerMetrics {
+	m0 := &ContainerMetrics{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_ContainerMetrics = b.ContainerMetrics
+	return m0
+}
+
 // ControlMetrics contains the aggregated values calculated by the Server.
 type ControlMetrics struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Timestamp of the calculation.
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// The number of ready replicas.
-	ReadyReplicas int32 `protobuf:"varint,3,opt,name=ready_replicas,json=readyReplicas,proto3" json:"ready_replicas,omitempty"`
-	// Global metric values, keyed by metric name.
-	Values map[string]float64 `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
-	// Per pod metric values, keyed by pod name.
-	PodMetrics map[string]*MetricValues `protobuf:"bytes,4,rep,name=pod_metrics,json=podMetrics,proto3" json:"pod_metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Per pod, per container metric values, keyed by pod name.
-	PodContainerMetrics map[string]*ContainerMetrics `protobuf:"bytes,5,rep,name=pod_container_metrics,json=podContainerMetrics,proto3" json:"pod_container_metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Per container metric values.
-	ContainerMetrics *ContainerMetrics `protobuf:"bytes,6,opt,name=container_metrics,json=containerMetrics,proto3" json:"container_metrics,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                          protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Timestamp           *timestamppb.Timestamp       `protobuf:"bytes,2,opt,name=timestamp"`
+	xxx_hidden_ReadyReplicas       int32                        `protobuf:"varint,3,opt,name=ready_replicas,json=readyReplicas"`
+	xxx_hidden_Values              map[string]float64           `protobuf:"bytes,1,rep,name=values" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	xxx_hidden_PodMetrics          map[string]*MetricValues     `protobuf:"bytes,4,rep,name=pod_metrics,json=podMetrics" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_PodContainerMetrics map[string]*ContainerMetrics `protobuf:"bytes,5,rep,name=pod_container_metrics,json=podContainerMetrics" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_ContainerMetrics    *ContainerMetrics            `protobuf:"bytes,6,opt,name=container_metrics,json=containerMetrics"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *ControlMetrics) Reset() {
@@ -1581,64 +3054,150 @@ func (x *ControlMetrics) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ControlMetrics.ProtoReflect.Descriptor instead.
-func (*ControlMetrics) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{24}
-}
-
 func (x *ControlMetrics) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Timestamp
+		return x.xxx_hidden_Timestamp
 	}
 	return nil
 }
 
 func (x *ControlMetrics) GetReadyReplicas() int32 {
 	if x != nil {
-		return x.ReadyReplicas
+		return x.xxx_hidden_ReadyReplicas
 	}
 	return 0
 }
 
 func (x *ControlMetrics) GetValues() map[string]float64 {
 	if x != nil {
-		return x.Values
+		return x.xxx_hidden_Values
 	}
 	return nil
 }
 
 func (x *ControlMetrics) GetPodMetrics() map[string]*MetricValues {
 	if x != nil {
-		return x.PodMetrics
+		return x.xxx_hidden_PodMetrics
 	}
 	return nil
 }
 
 func (x *ControlMetrics) GetPodContainerMetrics() map[string]*ContainerMetrics {
 	if x != nil {
-		return x.PodContainerMetrics
+		return x.xxx_hidden_PodContainerMetrics
 	}
 	return nil
 }
 
 func (x *ControlMetrics) GetContainerMetrics() *ContainerMetrics {
 	if x != nil {
-		return x.ContainerMetrics
+		return x.xxx_hidden_ContainerMetrics
 	}
 	return nil
 }
 
+func (x *ControlMetrics) SetTimestamp(v *timestamppb.Timestamp) {
+	x.xxx_hidden_Timestamp = v
+}
+
+func (x *ControlMetrics) SetReadyReplicas(v int32) {
+	x.xxx_hidden_ReadyReplicas = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+}
+
+func (x *ControlMetrics) SetValues(v map[string]float64) {
+	x.xxx_hidden_Values = v
+}
+
+func (x *ControlMetrics) SetPodMetrics(v map[string]*MetricValues) {
+	x.xxx_hidden_PodMetrics = v
+}
+
+func (x *ControlMetrics) SetPodContainerMetrics(v map[string]*ContainerMetrics) {
+	x.xxx_hidden_PodContainerMetrics = v
+}
+
+func (x *ControlMetrics) SetContainerMetrics(v *ContainerMetrics) {
+	x.xxx_hidden_ContainerMetrics = v
+}
+
+func (x *ControlMetrics) HasTimestamp() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Timestamp != nil
+}
+
+func (x *ControlMetrics) HasReadyReplicas() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ControlMetrics) HasContainerMetrics() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ContainerMetrics != nil
+}
+
+func (x *ControlMetrics) ClearTimestamp() {
+	x.xxx_hidden_Timestamp = nil
+}
+
+func (x *ControlMetrics) ClearReadyReplicas() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ReadyReplicas = 0
+}
+
+func (x *ControlMetrics) ClearContainerMetrics() {
+	x.xxx_hidden_ContainerMetrics = nil
+}
+
+type ControlMetrics_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Timestamp of the calculation.
+	Timestamp *timestamppb.Timestamp
+	// The number of ready replicas.
+	ReadyReplicas *int32
+	// Global metric values, keyed by metric name.
+	Values map[string]float64
+	// Per pod metric values, keyed by pod name.
+	PodMetrics map[string]*MetricValues
+	// Per pod, per container metric values, keyed by pod name.
+	PodContainerMetrics map[string]*ContainerMetrics
+	// Per container metric values.
+	ContainerMetrics *ContainerMetrics
+}
+
+func (b0 ControlMetrics_builder) Build() *ControlMetrics {
+	m0 := &ControlMetrics{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Timestamp = b.Timestamp
+	if b.ReadyReplicas != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		x.xxx_hidden_ReadyReplicas = *b.ReadyReplicas
+	}
+	x.xxx_hidden_Values = b.Values
+	x.xxx_hidden_PodMetrics = b.PodMetrics
+	x.xxx_hidden_PodContainerMetrics = b.PodContainerMetrics
+	x.xxx_hidden_ContainerMetrics = b.ContainerMetrics
+	return m0
+}
+
 // UpdateRecommenderStateRequest updates the status (recommendation) of a recommender.
 type UpdateRecommenderStateRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy ID.
-	Id *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The name of the recommender to update.
-	RecommenderName string `protobuf:"bytes,2,opt,name=recommender_name,json=recommenderName,proto3" json:"recommender_name,omitempty"`
-	// The new recommendation.
-	Recommendation *Recommendation `protobuf:"bytes,3,opt,name=recommendation,proto3" json:"recommendation,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id              *PolicyId              `protobuf:"bytes,1,opt,name=id"`
+	xxx_hidden_RecommenderName *string                `protobuf:"bytes,2,opt,name=recommender_name,json=recommenderName"`
+	xxx_hidden_Recommendation  *Recommendation        `protobuf:"bytes,3,opt,name=recommendation"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *UpdateRecommenderStateRequest) Reset() {
@@ -1666,30 +3225,99 @@ func (x *UpdateRecommenderStateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateRecommenderStateRequest.ProtoReflect.Descriptor instead.
-func (*UpdateRecommenderStateRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{25}
-}
-
 func (x *UpdateRecommenderStateRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
 }
 
 func (x *UpdateRecommenderStateRequest) GetRecommenderName() string {
 	if x != nil {
-		return x.RecommenderName
+		if x.xxx_hidden_RecommenderName != nil {
+			return *x.xxx_hidden_RecommenderName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *UpdateRecommenderStateRequest) GetRecommendation() *Recommendation {
 	if x != nil {
-		return x.Recommendation
+		return x.xxx_hidden_Recommendation
 	}
 	return nil
+}
+
+func (x *UpdateRecommenderStateRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *UpdateRecommenderStateRequest) SetRecommenderName(v string) {
+	x.xxx_hidden_RecommenderName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *UpdateRecommenderStateRequest) SetRecommendation(v *Recommendation) {
+	x.xxx_hidden_Recommendation = v
+}
+
+func (x *UpdateRecommenderStateRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *UpdateRecommenderStateRequest) HasRecommenderName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *UpdateRecommenderStateRequest) HasRecommendation() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Recommendation != nil
+}
+
+func (x *UpdateRecommenderStateRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+func (x *UpdateRecommenderStateRequest) ClearRecommenderName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_RecommenderName = nil
+}
+
+func (x *UpdateRecommenderStateRequest) ClearRecommendation() {
+	x.xxx_hidden_Recommendation = nil
+}
+
+type UpdateRecommenderStateRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy ID.
+	Id *PolicyId
+	// The name of the recommender to update.
+	RecommenderName *string
+	// The new recommendation.
+	Recommendation *Recommendation
+}
+
+func (b0 UpdateRecommenderStateRequest_builder) Build() *UpdateRecommenderStateRequest {
+	m0 := &UpdateRecommenderStateRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	if b.RecommenderName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_RecommenderName = b.RecommenderName
+	}
+	x.xxx_hidden_Recommendation = b.Recommendation
+	return m0
 }
 
 // A container resources requests/limits (e.g. CPU and Memory). Can also be
@@ -1698,16 +3326,14 @@ func (x *UpdateRecommenderStateRequest) GetRecommendation() *Recommendation {
 // Pod-level resources is decribed in
 // https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/
 type ContainerResource struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The container this recommendation applies to. If omitted, the resources
-	// are pod-level resources.
-	ContainerName string `protobuf:"bytes,3,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
-	// Maps a resource to its requested value (e.g. 'memory: 10Mi').
-	Requests map[string]string `protobuf:"bytes,1,rep,name=requests,proto3" json:"requests,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Maps a resource to its value limit (e.g. 'cpu: 5m').
-	Limits        map[string]string `protobuf:"bytes,2,rep,name=limits,proto3" json:"limits,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ContainerName *string                `protobuf:"bytes,3,opt,name=container_name,json=containerName"`
+	xxx_hidden_Requests      map[string]string      `protobuf:"bytes,1,rep,name=requests" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Limits        map[string]string      `protobuf:"bytes,2,rep,name=limits" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ContainerResource) Reset() {
@@ -1735,40 +3361,90 @@ func (x *ContainerResource) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ContainerResource.ProtoReflect.Descriptor instead.
-func (*ContainerResource) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{26}
-}
-
 func (x *ContainerResource) GetContainerName() string {
 	if x != nil {
-		return x.ContainerName
+		if x.xxx_hidden_ContainerName != nil {
+			return *x.xxx_hidden_ContainerName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ContainerResource) GetRequests() map[string]string {
 	if x != nil {
-		return x.Requests
+		return x.xxx_hidden_Requests
 	}
 	return nil
 }
 
 func (x *ContainerResource) GetLimits() map[string]string {
 	if x != nil {
-		return x.Limits
+		return x.xxx_hidden_Limits
 	}
 	return nil
+}
+
+func (x *ContainerResource) SetContainerName(v string) {
+	x.xxx_hidden_ContainerName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ContainerResource) SetRequests(v map[string]string) {
+	x.xxx_hidden_Requests = v
+}
+
+func (x *ContainerResource) SetLimits(v map[string]string) {
+	x.xxx_hidden_Limits = v
+}
+
+func (x *ContainerResource) HasContainerName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ContainerResource) ClearContainerName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ContainerName = nil
+}
+
+type ContainerResource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The container this recommendation applies to. If omitted, the resources
+	// are pod-level resources.
+	ContainerName *string
+	// Maps a resource to its requested value (e.g. 'memory: 10Mi').
+	Requests map[string]string
+	// Maps a resource to its value limit (e.g. 'cpu: 5m').
+	Limits map[string]string
+}
+
+func (b0 ContainerResource_builder) Build() *ContainerResource {
+	m0 := &ContainerResource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ContainerName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_ContainerName = b.ContainerName
+	}
+	x.xxx_hidden_Requests = b.Requests
+	x.xxx_hidden_Limits = b.Limits
+	return m0
 }
 
 // The resources requests/limits (e.g. CPU and Memory) for a given pod.
 // Requests/limits can either apply to a given container, or po
 type PodContainerResource struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	PodName            string                 `protobuf:"bytes,1,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	ContainerResources *ContainerResource     `protobuf:"bytes,2,opt,name=container_resources,json=containerResources,proto3" json:"container_resources,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_PodName            *string                `protobuf:"bytes,1,opt,name=pod_name,json=podName"`
+	xxx_hidden_ContainerResources *ContainerResource     `protobuf:"bytes,2,opt,name=container_resources,json=containerResources"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *PodContainerResource) Reset() {
@@ -1796,42 +3472,86 @@ func (x *PodContainerResource) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PodContainerResource.ProtoReflect.Descriptor instead.
-func (*PodContainerResource) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{27}
-}
-
 func (x *PodContainerResource) GetPodName() string {
 	if x != nil {
-		return x.PodName
+		if x.xxx_hidden_PodName != nil {
+			return *x.xxx_hidden_PodName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PodContainerResource) GetContainerResources() *ContainerResource {
 	if x != nil {
-		return x.ContainerResources
+		return x.xxx_hidden_ContainerResources
 	}
 	return nil
 }
 
+func (x *PodContainerResource) SetPodName(v string) {
+	x.xxx_hidden_PodName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *PodContainerResource) SetContainerResources(v *ContainerResource) {
+	x.xxx_hidden_ContainerResources = v
+}
+
+func (x *PodContainerResource) HasPodName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *PodContainerResource) HasContainerResources() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ContainerResources != nil
+}
+
+func (x *PodContainerResource) ClearPodName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_PodName = nil
+}
+
+func (x *PodContainerResource) ClearContainerResources() {
+	x.xxx_hidden_ContainerResources = nil
+}
+
+type PodContainerResource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	PodName            *string
+	ContainerResources *ContainerResource
+}
+
+func (b0 PodContainerResource_builder) Build() *PodContainerResource {
+	m0 := &PodContainerResource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.PodName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_PodName = b.PodName
+	}
+	x.xxx_hidden_ContainerResources = b.ContainerResources
+	return m0
+}
+
 // An autoscaling recommendation emitted by a recommender.
 type Recommendation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Recommendation for number of replicas.
-	Replicas *int32 `protobuf:"varint,1,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
-	// If false, this recommender recommends scaling to zero (if Activation type).
-	IsActive bool `protobuf:"varint,2,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
-	// Human-readable reason or message.
-	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	// Workload-level resource request/limit recommendations. Resources can be
-	// specific to a container, or pod-level resources.
-	WorkloadResources []*ContainerResource `protobuf:"bytes,4,rep,name=workload_resources,json=workloadResources,proto3" json:"workload_resources,omitempty"`
-	// Per-pod resource request/limit recommendations. Resources can be specific
-	// to a container, or pod-level resources.
-	PodContainerResources []*PodContainerResource `protobuf:"bytes,5,rep,name=pod_container_resources,json=podContainerResources,proto3" json:"pod_container_resources,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state                            protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_Replicas              int32                    `protobuf:"varint,1,opt,name=replicas"`
+	xxx_hidden_IsActive              bool                     `protobuf:"varint,2,opt,name=is_active,json=isActive"`
+	xxx_hidden_Message               *string                  `protobuf:"bytes,3,opt,name=message"`
+	xxx_hidden_WorkloadResources     *[]*ContainerResource    `protobuf:"bytes,4,rep,name=workload_resources,json=workloadResources"`
+	xxx_hidden_PodContainerResources *[]*PodContainerResource `protobuf:"bytes,5,rep,name=pod_container_resources,json=podContainerResources"`
+	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
+	XXX_presence                     [1]uint32
+	unknownFields                    protoimpl.UnknownFields
+	sizeCache                        protoimpl.SizeCache
 }
 
 func (x *Recommendation) Reset() {
@@ -1859,57 +3579,155 @@ func (x *Recommendation) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Recommendation.ProtoReflect.Descriptor instead.
-func (*Recommendation) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{28}
-}
-
 func (x *Recommendation) GetReplicas() int32 {
-	if x != nil && x.Replicas != nil {
-		return *x.Replicas
+	if x != nil {
+		return x.xxx_hidden_Replicas
 	}
 	return 0
 }
 
 func (x *Recommendation) GetIsActive() bool {
 	if x != nil {
-		return x.IsActive
+		return x.xxx_hidden_IsActive
 	}
 	return false
 }
 
 func (x *Recommendation) GetMessage() string {
 	if x != nil {
-		return x.Message
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *Recommendation) GetWorkloadResources() []*ContainerResource {
 	if x != nil {
-		return x.WorkloadResources
+		if x.xxx_hidden_WorkloadResources != nil {
+			return *x.xxx_hidden_WorkloadResources
+		}
 	}
 	return nil
 }
 
 func (x *Recommendation) GetPodContainerResources() []*PodContainerResource {
 	if x != nil {
-		return x.PodContainerResources
+		if x.xxx_hidden_PodContainerResources != nil {
+			return *x.xxx_hidden_PodContainerResources
+		}
 	}
 	return nil
 }
 
+func (x *Recommendation) SetReplicas(v int32) {
+	x.xxx_hidden_Replicas = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+}
+
+func (x *Recommendation) SetIsActive(v bool) {
+	x.xxx_hidden_IsActive = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+}
+
+func (x *Recommendation) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *Recommendation) SetWorkloadResources(v []*ContainerResource) {
+	x.xxx_hidden_WorkloadResources = &v
+}
+
+func (x *Recommendation) SetPodContainerResources(v []*PodContainerResource) {
+	x.xxx_hidden_PodContainerResources = &v
+}
+
+func (x *Recommendation) HasReplicas() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *Recommendation) HasIsActive() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *Recommendation) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *Recommendation) ClearReplicas() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Replicas = 0
+}
+
+func (x *Recommendation) ClearIsActive() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_IsActive = false
+}
+
+func (x *Recommendation) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Message = nil
+}
+
+type Recommendation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Recommendation for number of replicas.
+	Replicas *int32
+	// If false, this recommender recommends scaling to zero (if Activation type).
+	IsActive *bool
+	// Human-readable reason or message.
+	Message *string
+	// Workload-level resource request/limit recommendations. Resources can be
+	// specific to a container, or pod-level resources.
+	WorkloadResources []*ContainerResource
+	// Per-pod resource request/limit recommendations. Resources can be specific
+	// to a container, or pod-level resources.
+	PodContainerResources []*PodContainerResource
+}
+
+func (b0 Recommendation_builder) Build() *Recommendation {
+	m0 := &Recommendation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Replicas != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		x.xxx_hidden_Replicas = *b.Replicas
+	}
+	if b.IsActive != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		x.xxx_hidden_IsActive = *b.IsActive
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		x.xxx_hidden_Message = b.Message
+	}
+	x.xxx_hidden_WorkloadResources = &b.WorkloadResources
+	x.xxx_hidden_PodContainerResources = &b.PodContainerResources
+	return m0
+}
+
 // RecommenderState represents the full state of a recommender (Config + Status).
 type RecommenderState struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the recommender.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Configuration parameters for this recommender (from Policy).
-	Config map[string]string `protobuf:"bytes,2,rep,name=config,proto3" json:"config,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// The current recommendation/status of this recommender.
-	Status        *RecommenderStatus `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Config      map[string]string      `protobuf:"bytes,2,rep,name=config" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Status      *RecommenderStatus     `protobuf:"bytes,3,opt,name=status"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *RecommenderState) Reset() {
@@ -1937,57 +3755,107 @@ func (x *RecommenderState) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RecommenderState.ProtoReflect.Descriptor instead.
-func (*RecommenderState) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{29}
-}
-
 func (x *RecommenderState) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderState) GetConfig() map[string]string {
 	if x != nil {
-		return x.Config
+		return x.xxx_hidden_Config
 	}
 	return nil
 }
 
 func (x *RecommenderState) GetStatus() *RecommenderStatus {
 	if x != nil {
-		return x.Status
+		return x.xxx_hidden_Status
 	}
 	return nil
 }
 
+func (x *RecommenderState) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *RecommenderState) SetConfig(v map[string]string) {
+	x.xxx_hidden_Config = v
+}
+
+func (x *RecommenderState) SetStatus(v *RecommenderStatus) {
+	x.xxx_hidden_Status = v
+}
+
+func (x *RecommenderState) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RecommenderState) HasStatus() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Status != nil
+}
+
+func (x *RecommenderState) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *RecommenderState) ClearStatus() {
+	x.xxx_hidden_Status = nil
+}
+
+type RecommenderState_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the recommender.
+	Name *string
+	// Configuration parameters for this recommender (from Policy).
+	Config map[string]string
+	// The current recommendation/status of this recommender.
+	Status *RecommenderStatus
+}
+
+func (b0 RecommenderState_builder) Build() *RecommenderState {
+	m0 := &RecommenderState{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	x.xxx_hidden_Config = b.Config
+	x.xxx_hidden_Status = b.Status
+	return m0
+}
+
 // RecommenderStatus represents the output (recommendation) of a recommender.
 type RecommenderStatus struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// If false, this recommender recommends scaling to zero (if Activation type).
-	IsActive bool `protobuf:"varint,2,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
-	// Human-readable reason or message.
-	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	// Timestamp of the last update.
-	LastUpdated *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	// The phase of the recommender: "Scaling" or "Activation".
-	Phase string `protobuf:"bytes,5,opt,name=phase,proto3" json:"phase,omitempty"`
-	// The mode of the recommender: "Active" or "DryRun".
-	Mode string `protobuf:"bytes,6,opt,name=mode,proto3" json:"mode,omitempty"`
-	// The name of the recommender.
-	Name string `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
-	// The type of the recommender (e.g. "Linear", "Cron").
-	Type string `protobuf:"bytes,8,opt,name=type,proto3" json:"type,omitempty"`
-	// Replicas recommendation for the workload.
-	Replicas *int32 `protobuf:"varint,1,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
-	// Workload-level resource recommendations (one per container).
-	WorkloadResources []*ContainerResource `protobuf:"bytes,9,rep,name=workload_resources,json=workloadResources,proto3" json:"workload_resources,omitempty"`
-	// Pod-level resource recommendations.
-	PodResources  []*PodContainerResource `protobuf:"bytes,10,rep,name=pod_resources,json=podResources,proto3" json:"pod_resources,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                        protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_IsActive          bool                     `protobuf:"varint,2,opt,name=is_active,json=isActive"`
+	xxx_hidden_Message           *string                  `protobuf:"bytes,3,opt,name=message"`
+	xxx_hidden_LastUpdated       *timestamppb.Timestamp   `protobuf:"bytes,4,opt,name=last_updated,json=lastUpdated"`
+	xxx_hidden_Phase             *string                  `protobuf:"bytes,5,opt,name=phase"`
+	xxx_hidden_Mode              *string                  `protobuf:"bytes,6,opt,name=mode"`
+	xxx_hidden_Name              *string                  `protobuf:"bytes,7,opt,name=name"`
+	xxx_hidden_Type              *string                  `protobuf:"bytes,8,opt,name=type"`
+	xxx_hidden_Replicas          int32                    `protobuf:"varint,1,opt,name=replicas"`
+	xxx_hidden_WorkloadResources *[]*ContainerResource    `protobuf:"bytes,9,rep,name=workload_resources,json=workloadResources"`
+	xxx_hidden_PodResources      *[]*PodContainerResource `protobuf:"bytes,10,rep,name=pod_resources,json=podResources"`
+	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
+	XXX_presence                 [1]uint32
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *RecommenderStatus) Reset() {
@@ -2015,86 +3883,304 @@ func (x *RecommenderStatus) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RecommenderStatus.ProtoReflect.Descriptor instead.
-func (*RecommenderStatus) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{30}
-}
-
 func (x *RecommenderStatus) GetIsActive() bool {
 	if x != nil {
-		return x.IsActive
+		return x.xxx_hidden_IsActive
 	}
 	return false
 }
 
 func (x *RecommenderStatus) GetMessage() string {
 	if x != nil {
-		return x.Message
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderStatus) GetLastUpdated() *timestamppb.Timestamp {
 	if x != nil {
-		return x.LastUpdated
+		return x.xxx_hidden_LastUpdated
 	}
 	return nil
 }
 
 func (x *RecommenderStatus) GetPhase() string {
 	if x != nil {
-		return x.Phase
+		if x.xxx_hidden_Phase != nil {
+			return *x.xxx_hidden_Phase
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderStatus) GetMode() string {
 	if x != nil {
-		return x.Mode
+		if x.xxx_hidden_Mode != nil {
+			return *x.xxx_hidden_Mode
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderStatus) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderStatus) GetType() string {
 	if x != nil {
-		return x.Type
+		if x.xxx_hidden_Type != nil {
+			return *x.xxx_hidden_Type
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *RecommenderStatus) GetReplicas() int32 {
-	if x != nil && x.Replicas != nil {
-		return *x.Replicas
+	if x != nil {
+		return x.xxx_hidden_Replicas
 	}
 	return 0
 }
 
 func (x *RecommenderStatus) GetWorkloadResources() []*ContainerResource {
 	if x != nil {
-		return x.WorkloadResources
+		if x.xxx_hidden_WorkloadResources != nil {
+			return *x.xxx_hidden_WorkloadResources
+		}
 	}
 	return nil
 }
 
 func (x *RecommenderStatus) GetPodResources() []*PodContainerResource {
 	if x != nil {
-		return x.PodResources
+		if x.xxx_hidden_PodResources != nil {
+			return *x.xxx_hidden_PodResources
+		}
 	}
 	return nil
 }
 
+func (x *RecommenderStatus) SetIsActive(v bool) {
+	x.xxx_hidden_IsActive = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+}
+
+func (x *RecommenderStatus) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 10)
+}
+
+func (x *RecommenderStatus) SetLastUpdated(v *timestamppb.Timestamp) {
+	x.xxx_hidden_LastUpdated = v
+}
+
+func (x *RecommenderStatus) SetPhase(v string) {
+	x.xxx_hidden_Phase = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+}
+
+func (x *RecommenderStatus) SetMode(v string) {
+	x.xxx_hidden_Mode = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 10)
+}
+
+func (x *RecommenderStatus) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 10)
+}
+
+func (x *RecommenderStatus) SetType(v string) {
+	x.xxx_hidden_Type = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 10)
+}
+
+func (x *RecommenderStatus) SetReplicas(v int32) {
+	x.xxx_hidden_Replicas = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 10)
+}
+
+func (x *RecommenderStatus) SetWorkloadResources(v []*ContainerResource) {
+	x.xxx_hidden_WorkloadResources = &v
+}
+
+func (x *RecommenderStatus) SetPodResources(v []*PodContainerResource) {
+	x.xxx_hidden_PodResources = &v
+}
+
+func (x *RecommenderStatus) HasIsActive() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RecommenderStatus) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *RecommenderStatus) HasLastUpdated() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_LastUpdated != nil
+}
+
+func (x *RecommenderStatus) HasPhase() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *RecommenderStatus) HasMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *RecommenderStatus) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *RecommenderStatus) HasType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *RecommenderStatus) HasReplicas() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *RecommenderStatus) ClearIsActive() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_IsActive = false
+}
+
+func (x *RecommenderStatus) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+func (x *RecommenderStatus) ClearLastUpdated() {
+	x.xxx_hidden_LastUpdated = nil
+}
+
+func (x *RecommenderStatus) ClearPhase() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Phase = nil
+}
+
+func (x *RecommenderStatus) ClearMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Mode = nil
+}
+
+func (x *RecommenderStatus) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *RecommenderStatus) ClearType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_Type = nil
+}
+
+func (x *RecommenderStatus) ClearReplicas() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_Replicas = 0
+}
+
+type RecommenderStatus_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// If false, this recommender recommends scaling to zero (if Activation type).
+	IsActive *bool
+	// Human-readable reason or message.
+	Message *string
+	// Timestamp of the last update.
+	LastUpdated *timestamppb.Timestamp
+	// The phase of the recommender: "Scaling" or "Activation".
+	Phase *string
+	// The mode of the recommender: "Active" or "DryRun".
+	Mode *string
+	// The name of the recommender.
+	Name *string
+	// The type of the recommender (e.g. "Linear", "Cron").
+	Type *string
+	// Replicas recommendation for the workload.
+	Replicas *int32
+	// Workload-level resource recommendations (one per container).
+	WorkloadResources []*ContainerResource
+	// Pod-level resource recommendations.
+	PodResources []*PodContainerResource
+}
+
+func (b0 RecommenderStatus_builder) Build() *RecommenderStatus {
+	m0 := &RecommenderStatus{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.IsActive != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		x.xxx_hidden_IsActive = *b.IsActive
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 10)
+		x.xxx_hidden_Message = b.Message
+	}
+	x.xxx_hidden_LastUpdated = b.LastUpdated
+	if b.Phase != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		x.xxx_hidden_Phase = b.Phase
+	}
+	if b.Mode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 10)
+		x.xxx_hidden_Mode = b.Mode
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 10)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Type != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 10)
+		x.xxx_hidden_Type = b.Type
+	}
+	if b.Replicas != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 10)
+		x.xxx_hidden_Replicas = *b.Replicas
+	}
+	x.xxx_hidden_WorkloadResources = &b.WorkloadResources
+	x.xxx_hidden_PodResources = &b.PodResources
+	return m0
+}
+
 // GetRecommendationRequest retrieves the final recommendation for a policy.
 type GetRecommendationRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The policy ID.
-	Id            *PolicyId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id *PolicyId              `protobuf:"bytes,1,opt,name=id"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2124,30 +4210,52 @@ func (x *GetRecommendationRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetRecommendationRequest.ProtoReflect.Descriptor instead.
-func (*GetRecommendationRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{31}
-}
-
 func (x *GetRecommendationRequest) GetId() *PolicyId {
 	if x != nil {
-		return x.Id
+		return x.xxx_hidden_Id
 	}
 	return nil
+}
+
+func (x *GetRecommendationRequest) SetId(v *PolicyId) {
+	x.xxx_hidden_Id = v
+}
+
+func (x *GetRecommendationRequest) HasId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Id != nil
+}
+
+func (x *GetRecommendationRequest) ClearId() {
+	x.xxx_hidden_Id = nil
+}
+
+type GetRecommendationRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The policy ID.
+	Id *PolicyId
+}
+
+func (b0 GetRecommendationRequest_builder) Build() *GetRecommendationRequest {
+	m0 := &GetRecommendationRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Id = b.Id
+	return m0
 }
 
 // GetRecommendationResponse wraps the arbitrated recommendation.
 // If recommendation is not set, it means no arbitrated recommendation is available yet.
 type GetRecommendationResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Recommendation *Recommendation        `protobuf:"bytes,1,opt,name=recommendation,proto3" json:"recommendation,omitempty"`
-	// Explains the arbitrated recommendation by listing the status of all
-	// recommenders.
-	Explanation []*RecommenderStatus `protobuf:"bytes,3,rep,name=explanation,proto3" json:"explanation,omitempty"`
-	// Status of the input metrics used for the arbitrated recommendation.
-	MetricStatuses []*MetricStatus `protobuf:"bytes,2,rep,name=metric_statuses,json=metricStatuses,proto3" json:"metric_statuses,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Recommendation *Recommendation        `protobuf:"bytes,1,opt,name=recommendation"`
+	xxx_hidden_Explanation    *[]*RecommenderStatus  `protobuf:"bytes,3,rep,name=explanation"`
+	xxx_hidden_MetricStatuses *[]*MetricStatus       `protobuf:"bytes,2,rep,name=metric_statuses,json=metricStatuses"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *GetRecommendationResponse) Reset() {
@@ -2175,45 +4283,86 @@ func (x *GetRecommendationResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetRecommendationResponse.ProtoReflect.Descriptor instead.
-func (*GetRecommendationResponse) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{32}
-}
-
 func (x *GetRecommendationResponse) GetRecommendation() *Recommendation {
 	if x != nil {
-		return x.Recommendation
+		return x.xxx_hidden_Recommendation
 	}
 	return nil
 }
 
 func (x *GetRecommendationResponse) GetExplanation() []*RecommenderStatus {
 	if x != nil {
-		return x.Explanation
+		if x.xxx_hidden_Explanation != nil {
+			return *x.xxx_hidden_Explanation
+		}
 	}
 	return nil
 }
 
 func (x *GetRecommendationResponse) GetMetricStatuses() []*MetricStatus {
 	if x != nil {
-		return x.MetricStatuses
+		if x.xxx_hidden_MetricStatuses != nil {
+			return *x.xxx_hidden_MetricStatuses
+		}
 	}
 	return nil
 }
 
+func (x *GetRecommendationResponse) SetRecommendation(v *Recommendation) {
+	x.xxx_hidden_Recommendation = v
+}
+
+func (x *GetRecommendationResponse) SetExplanation(v []*RecommenderStatus) {
+	x.xxx_hidden_Explanation = &v
+}
+
+func (x *GetRecommendationResponse) SetMetricStatuses(v []*MetricStatus) {
+	x.xxx_hidden_MetricStatuses = &v
+}
+
+func (x *GetRecommendationResponse) HasRecommendation() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Recommendation != nil
+}
+
+func (x *GetRecommendationResponse) ClearRecommendation() {
+	x.xxx_hidden_Recommendation = nil
+}
+
+type GetRecommendationResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Recommendation *Recommendation
+	// Explains the arbitrated recommendation by listing the status of all
+	// recommenders.
+	Explanation []*RecommenderStatus
+	// Status of the input metrics used for the arbitrated recommendation.
+	MetricStatuses []*MetricStatus
+}
+
+func (b0 GetRecommendationResponse_builder) Build() *GetRecommendationResponse {
+	m0 := &GetRecommendationResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Recommendation = b.Recommendation
+	x.xxx_hidden_Explanation = &b.Explanation
+	x.xxx_hidden_MetricStatuses = &b.MetricStatuses
+	return m0
+}
+
 // MetricStatus represents the state of a single input metric.
 type MetricStatus struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the metric.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The aggregated value.
-	Value float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
-	// Timestamp of the value.
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// Error message if data is missing or invalid.
-	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Value       float64                `protobuf:"fixed64,2,opt,name=value"`
+	xxx_hidden_Timestamp   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp"`
+	xxx_hidden_Error       *string                `protobuf:"bytes,4,opt,name=error"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MetricStatus) Reset() {
@@ -2241,50 +4390,149 @@ func (x *MetricStatus) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricStatus.ProtoReflect.Descriptor instead.
-func (*MetricStatus) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{33}
-}
-
 func (x *MetricStatus) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricStatus) GetValue() float64 {
 	if x != nil {
-		return x.Value
+		return x.xxx_hidden_Value
 	}
 	return 0
 }
 
 func (x *MetricStatus) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Timestamp
+		return x.xxx_hidden_Timestamp
 	}
 	return nil
 }
 
 func (x *MetricStatus) GetError() string {
 	if x != nil {
-		return x.Error
+		if x.xxx_hidden_Error != nil {
+			return *x.xxx_hidden_Error
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *MetricStatus) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *MetricStatus) SetValue(v float64) {
+	x.xxx_hidden_Value = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *MetricStatus) SetTimestamp(v *timestamppb.Timestamp) {
+	x.xxx_hidden_Timestamp = v
+}
+
+func (x *MetricStatus) SetError(v string) {
+	x.xxx_hidden_Error = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *MetricStatus) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *MetricStatus) HasValue() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *MetricStatus) HasTimestamp() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Timestamp != nil
+}
+
+func (x *MetricStatus) HasError() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *MetricStatus) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *MetricStatus) ClearValue() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Value = 0
+}
+
+func (x *MetricStatus) ClearTimestamp() {
+	x.xxx_hidden_Timestamp = nil
+}
+
+func (x *MetricStatus) ClearError() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Error = nil
+}
+
+type MetricStatus_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the metric.
+	Name *string
+	// The aggregated value.
+	Value *float64
+	// Timestamp of the value.
+	Timestamp *timestamppb.Timestamp
+	// Error message if data is missing or invalid.
+	Error *string
+}
+
+func (b0 MetricStatus_builder) Build() *MetricStatus {
+	m0 := &MetricStatus{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Value != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_Value = *b.Value
+	}
+	x.xxx_hidden_Timestamp = b.Timestamp
+	if b.Error != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Error = b.Error
+	}
+	return m0
+}
+
 // IngestMetricsRequest pushes a batch of raw metrics to the Server.
 type IngestMetricsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The cluster name where metrics originated.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	// Timestamp of the ingestion.
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// Group metrics by policy.
-	Policies      []*PolicyBatch `protobuf:"bytes,3,rep,name=policies,proto3" json:"policies,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ClusterName *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName"`
+	xxx_hidden_Timestamp   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp"`
+	xxx_hidden_Policies    *[]*PolicyBatch        `protobuf:"bytes,3,rep,name=policies"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *IngestMetricsRequest) Reset() {
@@ -2312,43 +4560,102 @@ func (x *IngestMetricsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IngestMetricsRequest.ProtoReflect.Descriptor instead.
-func (*IngestMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{34}
-}
-
 func (x *IngestMetricsRequest) GetClusterName() string {
 	if x != nil {
-		return x.ClusterName
+		if x.xxx_hidden_ClusterName != nil {
+			return *x.xxx_hidden_ClusterName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *IngestMetricsRequest) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Timestamp
+		return x.xxx_hidden_Timestamp
 	}
 	return nil
 }
 
 func (x *IngestMetricsRequest) GetPolicies() []*PolicyBatch {
 	if x != nil {
-		return x.Policies
+		if x.xxx_hidden_Policies != nil {
+			return *x.xxx_hidden_Policies
+		}
 	}
 	return nil
 }
 
+func (x *IngestMetricsRequest) SetClusterName(v string) {
+	x.xxx_hidden_ClusterName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *IngestMetricsRequest) SetTimestamp(v *timestamppb.Timestamp) {
+	x.xxx_hidden_Timestamp = v
+}
+
+func (x *IngestMetricsRequest) SetPolicies(v []*PolicyBatch) {
+	x.xxx_hidden_Policies = &v
+}
+
+func (x *IngestMetricsRequest) HasClusterName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *IngestMetricsRequest) HasTimestamp() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Timestamp != nil
+}
+
+func (x *IngestMetricsRequest) ClearClusterName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ClusterName = nil
+}
+
+func (x *IngestMetricsRequest) ClearTimestamp() {
+	x.xxx_hidden_Timestamp = nil
+}
+
+type IngestMetricsRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The cluster name where metrics originated.
+	ClusterName *string
+	// Timestamp of the ingestion.
+	Timestamp *timestamppb.Timestamp
+	// Group metrics by policy.
+	Policies []*PolicyBatch
+}
+
+func (b0 IngestMetricsRequest_builder) Build() *IngestMetricsRequest {
+	m0 := &IngestMetricsRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ClusterName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_ClusterName = b.ClusterName
+	}
+	x.xxx_hidden_Timestamp = b.Timestamp
+	x.xxx_hidden_Policies = &b.Policies
+	return m0
+}
+
 // PolicyBatch groups metrics for a specific policy.
 type PolicyBatch struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The namespace of the policy.
-	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// The name of the policy.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Batches of metrics, usually grouped by Pod.
-	Batches       []*MetricBatch `protobuf:"bytes,3,rep,name=batches,proto3" json:"batches,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Namespace   *string                `protobuf:"bytes,1,opt,name=namespace"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Batches     *[]*MetricBatch        `protobuf:"bytes,3,rep,name=batches"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PolicyBatch) Reset() {
@@ -2376,45 +4683,110 @@ func (x *PolicyBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PolicyBatch.ProtoReflect.Descriptor instead.
-func (*PolicyBatch) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{35}
-}
-
 func (x *PolicyBatch) GetNamespace() string {
 	if x != nil {
-		return x.Namespace
+		if x.xxx_hidden_Namespace != nil {
+			return *x.xxx_hidden_Namespace
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PolicyBatch) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *PolicyBatch) GetBatches() []*MetricBatch {
 	if x != nil {
-		return x.Batches
+		if x.xxx_hidden_Batches != nil {
+			return *x.xxx_hidden_Batches
+		}
 	}
 	return nil
 }
 
+func (x *PolicyBatch) SetNamespace(v string) {
+	x.xxx_hidden_Namespace = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *PolicyBatch) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *PolicyBatch) SetBatches(v []*MetricBatch) {
+	x.xxx_hidden_Batches = &v
+}
+
+func (x *PolicyBatch) HasNamespace() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *PolicyBatch) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *PolicyBatch) ClearNamespace() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Namespace = nil
+}
+
+func (x *PolicyBatch) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
+}
+
+type PolicyBatch_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The namespace of the policy.
+	Namespace *string
+	// The name of the policy.
+	Name *string
+	// Batches of metrics, usually grouped by Pod.
+	Batches []*MetricBatch
+}
+
+func (b0 PolicyBatch_builder) Build() *PolicyBatch {
+	m0 := &PolicyBatch{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Namespace != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Namespace = b.Namespace
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	x.xxx_hidden_Batches = &b.Batches
+	return m0
+}
+
 // MetricBatch contains metrics for a specific pod.
 type MetricBatch struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Identifies the source pod.
-	// Empty string means the metric applies to the Policy as a whole (Global).
-	PodName string `protobuf:"bytes,1,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	// Identifies the source container within the pod.
-	// Empty string means the metric applies to the pod as a whole.
-	ContainerName string `protobuf:"bytes,3,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
-	// The list of metric samples.
-	Samples       []*MetricSample `protobuf:"bytes,2,rep,name=samples,proto3" json:"samples,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_PodName       *string                `protobuf:"bytes,1,opt,name=pod_name,json=podName"`
+	xxx_hidden_ContainerName *string                `protobuf:"bytes,3,opt,name=container_name,json=containerName"`
+	xxx_hidden_Samples       *[]*MetricSample       `protobuf:"bytes,2,rep,name=samples"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *MetricBatch) Reset() {
@@ -2442,51 +4814,116 @@ func (x *MetricBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricBatch.ProtoReflect.Descriptor instead.
-func (*MetricBatch) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{36}
-}
-
 func (x *MetricBatch) GetPodName() string {
 	if x != nil {
-		return x.PodName
+		if x.xxx_hidden_PodName != nil {
+			return *x.xxx_hidden_PodName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricBatch) GetContainerName() string {
 	if x != nil {
-		return x.ContainerName
+		if x.xxx_hidden_ContainerName != nil {
+			return *x.xxx_hidden_ContainerName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricBatch) GetSamples() []*MetricSample {
 	if x != nil {
-		return x.Samples
+		if x.xxx_hidden_Samples != nil {
+			return *x.xxx_hidden_Samples
+		}
 	}
 	return nil
 }
 
+func (x *MetricBatch) SetPodName(v string) {
+	x.xxx_hidden_PodName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *MetricBatch) SetContainerName(v string) {
+	x.xxx_hidden_ContainerName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *MetricBatch) SetSamples(v []*MetricSample) {
+	x.xxx_hidden_Samples = &v
+}
+
+func (x *MetricBatch) HasPodName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *MetricBatch) HasContainerName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *MetricBatch) ClearPodName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_PodName = nil
+}
+
+func (x *MetricBatch) ClearContainerName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ContainerName = nil
+}
+
+type MetricBatch_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Identifies the source pod.
+	// Empty string means the metric applies to the Policy as a whole (Global).
+	PodName *string
+	// Identifies the source container within the pod.
+	// Empty string means the metric applies to the pod as a whole.
+	ContainerName *string
+	// The list of metric samples.
+	Samples []*MetricSample
+}
+
+func (b0 MetricBatch_builder) Build() *MetricBatch {
+	m0 := &MetricBatch{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.PodName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_PodName = b.PodName
+	}
+	if b.ContainerName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_ContainerName = b.ContainerName
+	}
+	x.xxx_hidden_Samples = &b.Samples
+	return m0
+}
+
 // MetricSample represents a single data point.
 type MetricSample struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the metric.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The metric owning recommender (if any).
-	RecommenderName string `protobuf:"bytes,9,opt,name=recommender_name,json=recommenderName,proto3" json:"recommender_name,omitempty"`
-	// Labels associated with the sample.
-	Labels map[string]string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// For resource metrics (e.g. "cpu" or "memory"), the resource name.
-	ResourceName string `protobuf:"bytes,8,opt,name=resource_name,json=resourceName,proto3" json:"resource_name,omitempty"`
-	// The scalar value of the sample.
-	Value float64 `protobuf:"fixed64,3,opt,name=value,proto3" json:"value,omitempty"`
-	// Timestamp of the sample.
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// The histogram value of the sample (if its a distribution).
-	Histogram     *Histogram `protobuf:"bytes,5,opt,name=histogram,proto3" json:"histogram,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name            *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_RecommenderName *string                `protobuf:"bytes,9,opt,name=recommender_name,json=recommenderName"`
+	xxx_hidden_Labels          map[string]string      `protobuf:"bytes,2,rep,name=labels" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_ResourceName    *string                `protobuf:"bytes,8,opt,name=resource_name,json=resourceName"`
+	xxx_hidden_Value           float64                `protobuf:"fixed64,3,opt,name=value"`
+	xxx_hidden_Timestamp       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp"`
+	xxx_hidden_Histogram       *Histogram             `protobuf:"bytes,5,opt,name=histogram"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *MetricSample) Reset() {
@@ -2514,71 +4951,221 @@ func (x *MetricSample) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetricSample.ProtoReflect.Descriptor instead.
-func (*MetricSample) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{37}
-}
-
 func (x *MetricSample) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricSample) GetRecommenderName() string {
 	if x != nil {
-		return x.RecommenderName
+		if x.xxx_hidden_RecommenderName != nil {
+			return *x.xxx_hidden_RecommenderName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricSample) GetLabels() map[string]string {
 	if x != nil {
-		return x.Labels
+		return x.xxx_hidden_Labels
 	}
 	return nil
 }
 
 func (x *MetricSample) GetResourceName() string {
 	if x != nil {
-		return x.ResourceName
+		if x.xxx_hidden_ResourceName != nil {
+			return *x.xxx_hidden_ResourceName
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *MetricSample) GetValue() float64 {
 	if x != nil {
-		return x.Value
+		return x.xxx_hidden_Value
 	}
 	return 0
 }
 
 func (x *MetricSample) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Timestamp
+		return x.xxx_hidden_Timestamp
 	}
 	return nil
 }
 
 func (x *MetricSample) GetHistogram() *Histogram {
 	if x != nil {
-		return x.Histogram
+		return x.xxx_hidden_Histogram
 	}
 	return nil
 }
 
+func (x *MetricSample) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+}
+
+func (x *MetricSample) SetRecommenderName(v string) {
+	x.xxx_hidden_RecommenderName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+}
+
+func (x *MetricSample) SetLabels(v map[string]string) {
+	x.xxx_hidden_Labels = v
+}
+
+func (x *MetricSample) SetResourceName(v string) {
+	x.xxx_hidden_ResourceName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
+}
+
+func (x *MetricSample) SetValue(v float64) {
+	x.xxx_hidden_Value = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+}
+
+func (x *MetricSample) SetTimestamp(v *timestamppb.Timestamp) {
+	x.xxx_hidden_Timestamp = v
+}
+
+func (x *MetricSample) SetHistogram(v *Histogram) {
+	x.xxx_hidden_Histogram = v
+}
+
+func (x *MetricSample) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *MetricSample) HasRecommenderName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *MetricSample) HasResourceName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *MetricSample) HasValue() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *MetricSample) HasTimestamp() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Timestamp != nil
+}
+
+func (x *MetricSample) HasHistogram() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Histogram != nil
+}
+
+func (x *MetricSample) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *MetricSample) ClearRecommenderName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_RecommenderName = nil
+}
+
+func (x *MetricSample) ClearResourceName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ResourceName = nil
+}
+
+func (x *MetricSample) ClearValue() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Value = 0
+}
+
+func (x *MetricSample) ClearTimestamp() {
+	x.xxx_hidden_Timestamp = nil
+}
+
+func (x *MetricSample) ClearHistogram() {
+	x.xxx_hidden_Histogram = nil
+}
+
+type MetricSample_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the metric.
+	Name *string
+	// The metric owning recommender (if any).
+	RecommenderName *string
+	// Labels associated with the sample.
+	Labels map[string]string
+	// For resource metrics (e.g. "cpu" or "memory"), the resource name.
+	ResourceName *string
+	// The scalar value of the sample.
+	Value *float64
+	// Timestamp of the sample.
+	Timestamp *timestamppb.Timestamp
+	// The histogram value of the sample (if its a distribution).
+	Histogram *Histogram
+}
+
+func (b0 MetricSample_builder) Build() *MetricSample {
+	m0 := &MetricSample{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.RecommenderName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		x.xxx_hidden_RecommenderName = b.RecommenderName
+	}
+	x.xxx_hidden_Labels = b.Labels
+	if b.ResourceName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
+		x.xxx_hidden_ResourceName = b.ResourceName
+	}
+	if b.Value != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
+		x.xxx_hidden_Value = *b.Value
+	}
+	x.xxx_hidden_Timestamp = b.Timestamp
+	x.xxx_hidden_Histogram = b.Histogram
+	return m0
+}
+
 // A histogram (aka distribution) value.
 type Histogram struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Histogram buckets (Le -> Count).
-	Buckets map[string]uint64 `protobuf:"bytes,1,rep,name=buckets,proto3" json:"buckets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	// Sum of all observations in the histogram.
-	Sum float64 `protobuf:"fixed64,2,opt,name=sum,proto3" json:"sum,omitempty"`
-	// Total count of observations in the histogram.
-	Count         uint64 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Buckets     map[string]uint64      `protobuf:"bytes,1,rep,name=buckets" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	xxx_hidden_Sum         float64                `protobuf:"fixed64,2,opt,name=sum"`
+	xxx_hidden_Count       uint64                 `protobuf:"varint,3,opt,name=count"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Histogram) Reset() {
@@ -2606,39 +5193,100 @@ func (x *Histogram) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Histogram.ProtoReflect.Descriptor instead.
-func (*Histogram) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{38}
-}
-
 func (x *Histogram) GetBuckets() map[string]uint64 {
 	if x != nil {
-		return x.Buckets
+		return x.xxx_hidden_Buckets
 	}
 	return nil
 }
 
 func (x *Histogram) GetSum() float64 {
 	if x != nil {
-		return x.Sum
+		return x.xxx_hidden_Sum
 	}
 	return 0
 }
 
 func (x *Histogram) GetCount() uint64 {
 	if x != nil {
-		return x.Count
+		return x.xxx_hidden_Count
 	}
 	return 0
 }
 
+func (x *Histogram) SetBuckets(v map[string]uint64) {
+	x.xxx_hidden_Buckets = v
+}
+
+func (x *Histogram) SetSum(v float64) {
+	x.xxx_hidden_Sum = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *Histogram) SetCount(v uint64) {
+	x.xxx_hidden_Count = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *Histogram) HasSum() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *Histogram) HasCount() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *Histogram) ClearSum() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Sum = 0
+}
+
+func (x *Histogram) ClearCount() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Count = 0
+}
+
+type Histogram_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Histogram buckets (Le -> Count).
+	Buckets map[string]uint64
+	// Sum of all observations in the histogram.
+	Sum *float64
+	// Total count of observations in the histogram.
+	Count *uint64
+}
+
+func (b0 Histogram_builder) Build() *Histogram {
+	m0 := &Histogram{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Buckets = b.Buckets
+	if b.Sum != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Sum = *b.Sum
+	}
+	if b.Count != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Count = *b.Count
+	}
+	return m0
+}
+
 // IngestMetricsResponse acknowledges successful ingestion.
 type IngestMetricsResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether ingestion was successful.
-	Success       bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Success     bool                   `protobuf:"varint,1,opt,name=success"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *IngestMetricsResponse) Reset() {
@@ -2666,16 +5314,46 @@ func (x *IngestMetricsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IngestMetricsResponse.ProtoReflect.Descriptor instead.
-func (*IngestMetricsResponse) Descriptor() ([]byte, []int) {
-	return file_xas_proto_rawDescGZIP(), []int{39}
-}
-
 func (x *IngestMetricsResponse) GetSuccess() bool {
 	if x != nil {
-		return x.Success
+		return x.xxx_hidden_Success
 	}
 	return false
+}
+
+func (x *IngestMetricsResponse) SetSuccess(v bool) {
+	x.xxx_hidden_Success = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *IngestMetricsResponse) HasSuccess() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *IngestMetricsResponse) ClearSuccess() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Success = false
+}
+
+type IngestMetricsResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Whether ingestion was successful.
+	Success *bool
+}
+
+func (b0 IngestMetricsResponse_builder) Build() *IngestMetricsResponse {
+	m0 := &IngestMetricsResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Success != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Success = *b.Success
+	}
+	return m0
 }
 
 var File_xas_proto protoreflect.FileDescriptor
@@ -2845,21 +5523,20 @@ const file_xas_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x82\x01\n" +
 	"\x14PodContainerResource\x12\x19\n" +
 	"\bpod_name\x18\x01 \x01(\tR\apodName\x12O\n" +
-	"\x13container_resources\x18\x02 \x01(\v2\x1e.xas.v1alpha.ContainerResourceR\x12containerResources\"\x9f\x02\n" +
-	"\x0eRecommendation\x12\x1f\n" +
-	"\breplicas\x18\x01 \x01(\x05H\x00R\breplicas\x88\x01\x01\x12\x1b\n" +
+	"\x13container_resources\x18\x02 \x01(\v2\x1e.xas.v1alpha.ContainerResourceR\x12containerResources\"\x8d\x02\n" +
+	"\x0eRecommendation\x12\x1a\n" +
+	"\breplicas\x18\x01 \x01(\x05R\breplicas\x12\x1b\n" +
 	"\tis_active\x18\x02 \x01(\bR\bisActive\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12M\n" +
 	"\x12workload_resources\x18\x04 \x03(\v2\x1e.xas.v1alpha.ContainerResourceR\x11workloadResources\x12Y\n" +
-	"\x17pod_container_resources\x18\x05 \x03(\v2!.xas.v1alpha.PodContainerResourceR\x15podContainerResourcesB\v\n" +
-	"\t_replicas\"\xdc\x01\n" +
+	"\x17pod_container_resources\x18\x05 \x03(\v2!.xas.v1alpha.PodContainerResourceR\x15podContainerResources\"\xdc\x01\n" +
 	"\x10RecommenderState\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
 	"\x06config\x18\x02 \x03(\v2).xas.v1alpha.RecommenderState.ConfigEntryR\x06config\x126\n" +
 	"\x06status\x18\x03 \x01(\v2\x1e.xas.v1alpha.RecommenderStatusR\x06status\x1a9\n" +
 	"\vConfigEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa0\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8e\x03\n" +
 	"\x11RecommenderStatus\x12\x1b\n" +
 	"\tis_active\x18\x02 \x01(\bR\bisActive\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12=\n" +
@@ -2867,12 +5544,11 @@ const file_xas_proto_rawDesc = "" +
 	"\x05phase\x18\x05 \x01(\tR\x05phase\x12\x12\n" +
 	"\x04mode\x18\x06 \x01(\tR\x04mode\x12\x12\n" +
 	"\x04name\x18\a \x01(\tR\x04name\x12\x12\n" +
-	"\x04type\x18\b \x01(\tR\x04type\x12\x1f\n" +
-	"\breplicas\x18\x01 \x01(\x05H\x00R\breplicas\x88\x01\x01\x12M\n" +
+	"\x04type\x18\b \x01(\tR\x04type\x12\x1a\n" +
+	"\breplicas\x18\x01 \x01(\x05R\breplicas\x12M\n" +
 	"\x12workload_resources\x18\t \x03(\v2\x1e.xas.v1alpha.ContainerResourceR\x11workloadResources\x12F\n" +
 	"\rpod_resources\x18\n" +
-	" \x03(\v2!.xas.v1alpha.PodContainerResourceR\fpodResourcesB\v\n" +
-	"\t_replicas\"A\n" +
+	" \x03(\v2!.xas.v1alpha.PodContainerResourceR\fpodResources\"A\n" +
 	"\x18GetRecommendationRequest\x12%\n" +
 	"\x02id\x18\x01 \x01(\v2\x15.xas.v1alpha.PolicyIdR\x02id\"\xe6\x01\n" +
 	"\x19GetRecommendationResponse\x12C\n" +
@@ -2927,19 +5603,7 @@ const file_xas_proto_rawDesc = "" +
 	"\vGetWorkload\x12\x1f.xas.v1alpha.GetWorkloadRequest\x1a\x15.xas.v1alpha.Workload\x12c\n" +
 	"\x16UpdateRecommenderState\x12*.xas.v1alpha.UpdateRecommenderStateRequest\x1a\x1d.xas.v1alpha.RecommenderState\x12b\n" +
 	"\x11GetRecommendation\x12%.xas.v1alpha.GetRecommendationRequest\x1a&.xas.v1alpha.GetRecommendationResponse\x12V\n" +
-	"\rIngestMetrics\x12!.xas.v1alpha.IngestMetricsRequest\x1a\".xas.v1alpha.IngestMetricsResponseB@Z>github.com/gke-labs/extensible-workload-autoscaler/api/v1alphab\x06proto3"
-
-var (
-	file_xas_proto_rawDescOnce sync.Once
-	file_xas_proto_rawDescData []byte
-)
-
-func file_xas_proto_rawDescGZIP() []byte {
-	file_xas_proto_rawDescOnce.Do(func() {
-		file_xas_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_xas_proto_rawDesc), len(file_xas_proto_rawDesc)))
-	})
-	return file_xas_proto_rawDescData
-}
+	"\rIngestMetrics\x12!.xas.v1alpha.IngestMetricsRequest\x1a\".xas.v1alpha.IngestMetricsResponseB@Z>github.com/gke-labs/extensible-workload-autoscaler/api/v1alphab\beditionsp\xe9\a"
 
 var file_xas_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
 var file_xas_proto_goTypes = []any{
@@ -3107,8 +5771,6 @@ func file_xas_proto_init() {
 	if File_xas_proto != nil {
 		return
 	}
-	file_xas_proto_msgTypes[28].OneofWrappers = []any{}
-	file_xas_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

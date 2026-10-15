@@ -41,8 +41,8 @@ func (e *Engine) syncRecommenderMetrics(pol *pb.Policy) (*pb.Policy, map[string]
 	owned := make(map[string]*pb.MetricDefinitionList)
 	configErrs := make(map[string]error)
 
-	for _, recDef := range slices.Concat(pol.Activation, pol.Scaling) {
-		rec, err := e.recommenderFor(recDef.Recommender)
+	for _, recDef := range slices.Concat(pol.GetActivation(), pol.GetScaling()) {
+		rec, err := e.recommenderFor(recDef.GetRecommender())
 		if err != nil {
 			continue
 		}
@@ -51,18 +51,18 @@ func (e *Engine) syncRecommenderMetrics(pol *pb.Policy) (*pb.Policy, map[string]
 			continue
 		}
 
-		ownedMetrics, err := owner.OwnedMetrics(recDef, pol.Metrics)
+		ownedMetrics, err := owner.OwnedMetrics(recDef, pol.GetMetrics())
 		if err != nil {
-			configErrs[recDef.Name] = err
+			configErrs[recDef.GetName()] = err
 			ownedMetrics = nil
 		}
 		stamped := make([]*pb.MetricDefinition, 0, len(ownedMetrics))
 		for _, m := range ownedMetrics {
 			m = proto.Clone(m).(*pb.MetricDefinition)
-			m.RecommenderName = recDef.Name
+			m.SetRecommenderName(recDef.GetName())
 			stamped = append(stamped, m)
 		}
-		owned[recDef.Name] = &pb.MetricDefinitionList{Definitions: stamped}
+		owned[recDef.GetName()] = pb.MetricDefinitionList_builder{Definitions: stamped}.Build()
 	}
 
 	// changed holds the owned metric lists that differ from the policy on the
@@ -72,12 +72,12 @@ func (e *Engine) syncRecommenderMetrics(pol *pb.Policy) (*pb.Policy, map[string]
 	// merged in.
 	changed := make(map[string]*pb.MetricDefinitionList)
 	for name, list := range owned {
-		current, registered := pol.RecommenderMetrics[name]
+		current, registered := pol.GetRecommenderMetrics()[name]
 		switch {
-		case len(list.Definitions) == 0 && !registered:
+		case len(list.GetDefinitions()) == 0 && !registered:
 			// Server policy correctly has no metric owned by this recommender
 			continue
-		case len(list.Definitions) == 0:
+		case len(list.GetDefinitions()) == 0:
 			// The recommender no longer owns metrics: delete its entry.
 			changed[name] = nil
 		case proto.Equal(current, list):
@@ -96,26 +96,26 @@ func (e *Engine) syncRecommenderMetrics(pol *pb.Policy) (*pb.Policy, map[string]
 
 	desired := proto.Clone(pol).(*pb.Policy)
 
-	if desired.RecommenderMetrics == nil {
-		desired.RecommenderMetrics = make(map[string]*pb.MetricDefinitionList, len(changed))
+	if desired.GetRecommenderMetrics() == nil {
+		desired.SetRecommenderMetrics(make(map[string]*pb.MetricDefinitionList, len(changed)))
 	}
 	for name, list := range changed {
 		if list == nil {
-			delete(desired.RecommenderMetrics, name)
+			delete(desired.GetRecommenderMetrics(), name)
 		} else {
-			desired.RecommenderMetrics[name] = list
+			desired.GetRecommenderMetrics()[name] = list
 		}
 	}
 
-	req := &pb.UpdatePolicyRequest{
+	req := pb.UpdatePolicyRequest_builder{
 		Policy: desired,
-	}
+	}.Build()
 	updated, err := e.client.UpdatePolicy(ctx, req)
 	if err != nil {
-		slog.Error("Failed to register recommender owned metrics", "policy", pol.Id.Name, "error", err)
+		slog.Error("Failed to register recommender owned metrics", "policy", pol.GetId().GetName(), "error", err)
 		return pol, configErrs
 	}
-	slog.Debug("Registered recommender owned metrics", "policy", pol.Id.Name, "recommenders", len(changed))
+	slog.Debug("Registered recommender owned metrics", "policy", pol.GetId().GetName(), "recommenders", len(changed))
 
 	return updated, configErrs
 }

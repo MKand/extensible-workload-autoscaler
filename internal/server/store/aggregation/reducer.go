@@ -93,10 +93,10 @@ func MergeDistributionSeriesReducer(samples iter.Seq[model.Sample]) model.Sample
 // i.e. the resulting distribution holds the samples of every input
 // distribution. The input histograms are left untouched.
 func CreateMergeDecayingDistributionSeriesReducer(def *pb.DecayingDistribution) SeriesReducer {
-	halfLife := def.HalfLife.AsDuration()
+	halfLife := def.GetHalfLife().AsDuration()
 	return func(samples iter.Seq[model.Sample]) model.Sample {
 		// The reference time is set by the first merged histogram.
-		merged, err := model.NewDecayingHistogram(time.Time{}, halfLife, def.BucketSize)
+		merged, err := model.NewDecayingHistogram(time.Time{}, halfLife, def.GetBucketSize())
 		if err != nil {
 			return model.Sample{}
 		}

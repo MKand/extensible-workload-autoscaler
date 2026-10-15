@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/kubernetes"
 	customclient "k8s.io/metrics/pkg/client/custom_metrics"
@@ -76,9 +77,9 @@ func (p *CoreClusterMetricsProvider) scrapeAndSend() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	resp, err := p.grpcClient.ListPolicies(ctx, &pb.ListPoliciesRequest{
-		ClusterName: p.clusterName,
-	})
+	resp, err := p.grpcClient.ListPolicies(ctx, pb.ListPoliciesRequest_builder{
+		ClusterName: proto.String(p.clusterName),
+	}.Build())
 	if err != nil {
 		slog.Error("Error listing policies", "error", err)
 		return
@@ -86,24 +87,24 @@ func (p *CoreClusterMetricsProvider) scrapeAndSend() {
 
 	var policyBatches []*pb.PolicyBatch
 
-	for _, pol := range resp.Policies {
+	for _, pol := range resp.GetPolicies() {
 		var policyMetrics []*pb.MetricBatch
 
 		for _, m := range policy.MetricDefinitions(pol) {
-			class, err := p.providerLister.Get(m.Provider)
+			class, err := p.providerLister.Get(m.GetProvider())
 			if err != nil {
-				slog.Warn("MetricProviderClass not found for metric", "class", m.Provider, "metric", m.Name)
+				slog.Warn("MetricProviderClass not found for metric", "class", m.GetProvider(), "metric", m.GetName())
 				continue
 			}
 
 			switch class.Spec.Type {
 			case "ExternalMetrics":
-				batches := p.processExternalMetric(pol.Id.Namespace, m, class)
+				batches := p.processExternalMetric(pol.GetId().GetNamespace(), m, class)
 				if len(batches) > 0 {
 					policyMetrics = append(policyMetrics, batches...)
 				}
 			case "CustomMetrics":
-				batches := p.processCustomMetric(pol.Id.Namespace, pol, m, class)
+				batches := p.processCustomMetric(pol.GetId().GetNamespace(), pol, m, class)
 				if len(batches) > 0 {
 					policyMetrics = append(policyMetrics, batches...)
 				}
@@ -111,20 +112,20 @@ func (p *CoreClusterMetricsProvider) scrapeAndSend() {
 		}
 
 		if len(policyMetrics) > 0 {
-			policyBatches = append(policyBatches, &pb.PolicyBatch{
-				Namespace: pol.Id.Namespace,
-				Name:      pol.Id.Name,
+			policyBatches = append(policyBatches, pb.PolicyBatch_builder{
+				Namespace: proto.String(pol.GetId().GetNamespace()),
+				Name:      proto.String(pol.GetId().GetName()),
 				Batches:   policyMetrics,
-			})
+			}.Build())
 		}
 	}
 
 	if len(policyBatches) > 0 {
-		req := &pb.IngestMetricsRequest{
-			ClusterName: p.clusterName,
+		req := pb.IngestMetricsRequest_builder{
+			ClusterName: proto.String(p.clusterName),
 			Timestamp:   timestamppb.Now(),
 			Policies:    policyBatches,
-		}
+		}.Build()
 		p.sendBatch(req)
 	}
 }
@@ -133,11 +134,11 @@ func (p *CoreClusterMetricsProvider) sendBatch(req *pb.IngestMetricsRequest) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	slog.Debug("Sending cluster metrics batch", "policies", len(req.Policies))
+	slog.Debug("Sending cluster metrics batch", "policies", len(req.GetPolicies()))
 	resp, err := p.grpcClient.IngestMetrics(ctx, req)
 	if err != nil {
 		slog.Error("Failed to send cluster metrics batch", "error", err)
 		return
 	}
-	slog.Info("Cluster metrics batch sent", "success", resp.Success)
+	slog.Info("Cluster metrics batch sent", "success", resp.GetSuccess())
 }

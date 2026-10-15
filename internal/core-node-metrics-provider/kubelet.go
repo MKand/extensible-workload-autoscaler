@@ -11,6 +11,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 
@@ -135,7 +136,7 @@ func getLabel(m *dto.Metric, name string) string {
 
 func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.MetricDefinition, kubeletMetrics map[string]map[string]*KubeletPodMetrics, seenKeys map[string]bool, class *xasv1.MetricProviderClass) []*pb.MetricBatch {
 	getParam := func(key string) string {
-		if val, ok := m.Params[key]; ok {
+		if val, ok := m.GetParams()[key]; ok {
 			return val
 		}
 		if class != nil {
@@ -172,7 +173,7 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 	batches := make([]*pb.MetricBatch, 0, len(podStats.Containers))
 
 	for cName, cStats := range podStats.Containers {
-		val, ts, ok := a.containerUsage(pod, cName, cStats, metricType, m.Name, seenKeys)
+		val, ts, ok := a.containerUsage(pod, cName, cStats, metricType, m.GetName(), seenKeys)
 		if !ok {
 			continue
 		}
@@ -189,19 +190,19 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 			val /= req
 		}
 
-		batches = append(batches, &pb.MetricBatch{
-			PodName:       pod.Name,
-			ContainerName: cName,
+		batches = append(batches, pb.MetricBatch_builder{
+			PodName:       proto.String(pod.Name),
+			ContainerName: proto.String(cName),
 			Samples: []*pb.MetricSample{
-				{
-					Name:            m.Name,
-					RecommenderName: m.RecommenderName,
-					ResourceName:    metricType,
-					Value:           val,
+				pb.MetricSample_builder{
+					Name:            proto.String(m.GetName()),
+					RecommenderName: proto.String(m.GetRecommenderName()),
+					ResourceName:    proto.String(metricType),
+					Value:           proto.Float64(val),
 					Timestamp:       timestamppb.New(time.Unix(ts, 0)),
-				},
+				}.Build(),
 			},
-		})
+		}.Build())
 	}
 
 	if len(batches) == 0 {
@@ -209,7 +210,7 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 	}
 
 	// Map iteration order is random; sort for deterministic output.
-	sort.Slice(batches, func(i, j int) bool { return batches[i].ContainerName < batches[j].ContainerName })
+	sort.Slice(batches, func(i, j int) bool { return batches[i].GetContainerName() < batches[j].GetContainerName() })
 	return batches
 }
 

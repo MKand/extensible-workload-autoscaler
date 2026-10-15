@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,14 +54,14 @@ func TestProcessExternalMetric(t *testing.T) {
 		{
 			name:      "Valid External Metric Query",
 			namespace: "default",
-			def: &pb.MetricDefinition{
-				Name:     "queue_depth",
-				Provider: "k8s-external-metrics",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("queue_depth"),
+				Provider: proto.String("k8s-external-metrics"),
 				Params: map[string]string{
 					"metric":   "pubsub_messages",
 					"selector": "sub=task-sub",
 				},
-			},
+			}.Build(),
 			items: []externalv1beta1.ExternalMetricValue{
 				{
 					MetricName:   "pubsub_messages",
@@ -70,27 +71,27 @@ func TestProcessExternalMetric(t *testing.T) {
 				},
 			},
 			want: []*pb.MetricBatch{
-				{
-					PodName: "",
+				pb.MetricBatch_builder{
+					PodName: proto.String(""),
 					Samples: []*pb.MetricSample{
-						{
-							Name:      "queue_depth",
+						pb.MetricSample_builder{
+							Name:      proto.String("queue_depth"),
 							Labels:    map[string]string{"sub": "task-sub"},
-							Value:     150,
+							Value:     proto.Float64(150),
 							Timestamp: timestamppb.New(time.Unix(1720000000, 0)),
-						},
+						}.Build(),
 					},
-				},
+				}.Build(),
 			},
 		},
 		{
 			name:      "Missing Metric Param",
 			namespace: "default",
-			def: &pb.MetricDefinition{
-				Name:     "queue_depth",
-				Provider: "k8s-external-metrics",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("queue_depth"),
+				Provider: proto.String("k8s-external-metrics"),
 				Params:   map[string]string{},
-			},
+			}.Build(),
 			items: nil,
 			want:  nil,
 		},
@@ -106,7 +107,7 @@ func TestProcessExternalMetric(t *testing.T) {
 
 			got := provider.processExternalMetric(tc.namespace, tc.def, class)
 
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("processExternalMetric mismatch (-want +got):\n%s", diff)
 			}
 		})

@@ -126,7 +126,7 @@ func (r *VPARecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetri
 	}
 	byName := make(map[string]*pb.MetricDefinition, len(policyMetrics))
 	for _, m := range policyMetrics {
-		byName[m.Name] = m
+		byName[m.GetName()] = m
 	}
 
 	var owned []*pb.MetricDefinition
@@ -158,21 +158,21 @@ func (r *VPARecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetri
 				continue
 			}
 			tdd := template.GetDecayingDistribution()
-			if dd.GetHalfLife().AsDuration() != tdd.GetHalfLife().AsDuration() || dd.BucketSize != tdd.BucketSize {
+			if dd.GetHalfLife().AsDuration() != tdd.GetHalfLife().AsDuration() || dd.GetBucketSize() != tdd.GetBucketSize() {
 				return nil, fmt.Errorf("the %s metrics must have the same halfLife and bucketSize: %s %q has %v and %q, %s %q has %v and %q",
-					res.name, templateParam, template.Name, tdd.GetHalfLife().AsDuration(), tdd.BucketSize, res.param(sl), ref.name, dd.GetHalfLife().AsDuration(), dd.BucketSize)
+					res.name, templateParam, template.GetName(), tdd.GetHalfLife().AsDuration(), tdd.GetBucketSize(), res.param(sl), ref.name, dd.GetHalfLife().AsDuration(), dd.GetBucketSize())
 			}
 		}
 		if template == nil {
-			template = &pb.MetricDefinition{
-				Provider: defaultProvider,
+			template = pb.MetricDefinition_builder{
+				Provider: proto.String(defaultProvider),
 				Params:   map[string]string{"type": res.name},
-				Scope:    defaultScope,
-				DecayingDistribution: &pb.DecayingDistribution{
+				Scope:    proto.String(defaultScope),
+				DecayingDistribution: pb.DecayingDistribution_builder{
 					HalfLife:   durationpb.New(defaultHalfLife),
-					BucketSize: res.defaultBucketSize,
-				},
-			}
+					BucketSize: proto.String(res.defaultBucketSize),
+				}.Build(),
+			}.Build()
 		}
 
 		for sl := range numSlots {
@@ -181,19 +181,19 @@ func (r *VPARecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetri
 				continue
 			}
 			tdd := template.GetDecayingDistribution()
-			owned = append(owned, &pb.MetricDefinition{
-				Name:     ref.name,
-				Provider: template.Provider,
-				Params:   maps.Clone(template.Params),
-				Filter:   maps.Clone(template.Filter),
-				Scope:    template.Scope,
-				DecayingDistribution: &pb.DecayingDistribution{
-					HalfLife:   proto.CloneOf(tdd.HalfLife),
-					BucketSize: tdd.BucketSize,
-					Rate:       proto.CloneOf(tdd.Rate),
-					Percentile: slots[sl].percentile,
-				},
-			})
+			owned = append(owned, pb.MetricDefinition_builder{
+				Name:     proto.String(ref.name),
+				Provider: proto.String(template.GetProvider()),
+				Params:   maps.Clone(template.GetParams()),
+				Filter:   maps.Clone(template.GetFilter()),
+				Scope:    proto.String(template.GetScope()),
+				DecayingDistribution: pb.DecayingDistribution_builder{
+					HalfLife:   proto.CloneOf(tdd.GetHalfLife()),
+					BucketSize: proto.String(tdd.GetBucketSize()),
+					Rate:       proto.CloneOf(tdd.GetRate()),
+					Percentile: proto.String(slots[sl].percentile),
+				}.Build(),
+			}.Build())
 		}
 	}
 	return owned, nil
@@ -217,23 +217,23 @@ func (r *VPARecommender) Recommend(def *pb.RecommenderDefinition, state, ownedMe
 
 	// If parsing fails, return a Recommendation with the error message in the Message field.
 	if err != nil {
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  fmt.Sprintf("Unable to parse recommender configuration: %v", err),
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String(fmt.Sprintf("Unable to parse recommender configuration: %v", err)),
+		}.Build()
 	}
 
 	if state == nil && ownedMetrics == nil {
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  "ControlMetrics is missing",
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String("ControlMetrics is missing"),
+		}.Build()
 	}
 	if len(state.GetPodContainerMetrics()) == 0 && len(ownedMetrics.GetPodContainerMetrics()) == 0 {
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  "PodMetrics is empty (ensure metrics are configured with scope: PodContainer)",
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String("PodMetrics is empty (ensure metrics are configured with scope: PodContainer)"),
+		}.Build()
 	}
 
 	requests := make(map[string]string, 2)
@@ -297,33 +297,33 @@ func (r *VPARecommender) Recommend(def *pb.RecommenderDefinition, state, ownedMe
 	if len(requests) == 0 {
 		warnings = append(warnings, "Unable to create recommendation as no value memory or cpu values were found")
 
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  fmt.Sprintf("No Recommendations generated: %s", strings.Join(warnings, "; ")),
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String(fmt.Sprintf("No Recommendations generated: %s", strings.Join(warnings, "; "))),
+		}.Build()
 	}
 
 	// Without the pods' current requests, every pod would be resized.
 	if len(workload.GetPods()) == 0 {
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  fmt.Sprintf("%s; no pods reported for the workload yet", strings.Join(summary, "; ")),
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String(fmt.Sprintf("%s; no pods reported for the workload yet", strings.Join(summary, "; "))),
+		}.Build()
 	}
 	var containers []*pb.ContainerState
 	var current []map[string]string
 	for _, pod := range workload.GetPods() {
 		idx := slices.IndexFunc(pod.GetContainers(), func(c *pb.ContainerState) bool { return c.GetName() == cfg.containerName })
 		if idx >= 0 {
-			containers = append(containers, pod.Containers[idx])
-			current = append(current, pod.Containers[idx].GetRequests())
+			containers = append(containers, pod.GetContainers()[idx])
+			current = append(current, pod.GetContainers()[idx].GetRequests())
 		}
 	}
 	if len(current) == 0 {
-		return &pb.Recommendation{
-			IsActive: false,
-			Message:  fmt.Sprintf("%s; no pod of the workload has the container %q", strings.Join(summary, "; "), cfg.containerName),
-		}
+		return pb.Recommendation_builder{
+			IsActive: proto.Bool(false),
+			Message:  proto.String(fmt.Sprintf("%s; no pod of the workload has the container %q", strings.Join(summary, "; "), cfg.containerName)),
+		}.Build()
 	}
 
 	// Every pod gets the same requests. Keep the pods' current requests while
@@ -354,15 +354,15 @@ func (r *VPARecommender) Recommend(def *pb.RecommenderDefinition, state, ownedMe
 	if len(warnings) > 0 {
 		msg += fmt.Sprintf("; warnings: %s", strings.Join(warnings, "; "))
 	}
-	return &pb.Recommendation{
-		IsActive: true,
-		WorkloadResources: []*pb.ContainerResource{{
-			ContainerName: cfg.containerName,
+	return pb.Recommendation_builder{
+		IsActive: proto.Bool(true),
+		WorkloadResources: []*pb.ContainerResource{pb.ContainerResource_builder{
+			ContainerName: proto.String(cfg.containerName),
 			Requests:      requests,
 			Limits:        limits,
-		}},
-		Message: msg,
-	}
+		}.Build()},
+		Message: proto.String(msg),
+	}.Build()
 }
 
 // cpuMilliFor returns the recommended CPU, in millicores, for the max value of
@@ -400,7 +400,7 @@ func getMaxVal(podMetrics map[string]*pb.ContainerMetrics, containerName, metric
 		if !ok || containerMetric == nil {
 			continue
 		}
-		val, ok := containerMetric.Values[metric]
+		val, ok := containerMetric.GetValues()[metric]
 		if ok {
 			if !found || val > maxVal {
 				maxVal = val
@@ -415,7 +415,7 @@ func getMaxVal(podMetrics map[string]*pb.ContainerMetrics, containerName, metric
 // definition. It doesn't check the configured metrics against the policy; see
 // OwnedMetrics.
 func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
-	container := strings.TrimSpace(def.Params["container"])
+	container := strings.TrimSpace(def.GetParams()["container"])
 	if container == "" {
 		return nil, fmt.Errorf("container is undefined. For VPA to work, one container needs to be defined.")
 	}
@@ -426,7 +426,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		var names [numSlots]string
 		set := false
 		for sl := range numSlots {
-			names[sl] = strings.TrimSpace(def.Params[res.param(sl)])
+			names[sl] = strings.TrimSpace(def.GetParams()[res.param(sl)])
 			set = set || names[sl] != ""
 		}
 		if set {
@@ -434,7 +434,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		}
 	}
 
-	controlled, err := parseControlledResources(def.Params["controlled-resources"], userMetrics)
+	controlled, err := parseControlledResources(def.GetParams()["controlled-resources"], userMetrics)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +451,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 	for _, res := range resources {
 		margin := res.defaultMargin
 		marginParam := res.paramPrefix + "-safety-margin"
-		if s := def.Params[marginParam]; s != "" {
+		if s := def.GetParams()[marginParam]; s != "" {
 			margin, err = strconv.ParseFloat(strings.TrimSpace(s), 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid %s provided %s. The value needs to represent a float64. err: %w", marginParam, s, err)
@@ -459,7 +459,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		}
 		var limitRatio *big.Rat
 		ratioParam := res.paramPrefix + "-limit-ratio"
-		if s := strings.TrimSpace(def.Params[ratioParam]); s != "" {
+		if s := strings.TrimSpace(def.GetParams()[ratioParam]); s != "" {
 			r, ok := new(big.Rat).SetString(s)
 			if !ok || r.Cmp(big.NewRat(1, 1)) < 0 {
 				return nil, fmt.Errorf("invalid %s %q: it must be a number >= 1", ratioParam, s)

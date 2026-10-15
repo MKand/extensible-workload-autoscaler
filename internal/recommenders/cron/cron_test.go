@@ -27,66 +27,66 @@ func TestCronRecommend(t *testing.T) {
 	}{
 		{
 			name: "Active Window (9am-5pm)",
-			def: &pb.RecommenderDefinition{
-				Name:        "work_hours",
-				Recommender: "Cron",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("work_hours"),
+				Recommender: proto.String("Cron"),
 				Params: map[string]string{
 					"start":    "0 9 * * *",
 					"end":      "0 17 * * *",
 					"timezone": "UTC",
 					"replicas": "5",
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				Replicas: proto.Int32(5),
-			},
+			}.Build(),
 		},
 		{
 			name: "Inactive Window (11pm-7am)",
-			def: &pb.RecommenderDefinition{
-				Name:        "night_shift",
-				Recommender: "Cron",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("night_shift"),
+				Recommender: proto.String("Cron"),
 				Params: map[string]string{
 					"start":    "0 23 * * *",
 					"end":      "0 7 * * *",
 					"timezone": "UTC",
 					"replicas": "10",
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: false,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
 				Replicas: proto.Int32(0),
-			},
+			}.Build(),
 		},
 		{
 			name: "Activation only (no replicas param)",
-			def: &pb.RecommenderDefinition{
-				Name:        "activation_only",
-				Recommender: "Cron",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("activation_only"),
+				Recommender: proto.String("Cron"),
 				Params: map[string]string{
 					"start":    "0 9 * * *",
 					"end":      "0 17 * * *",
 					"timezone": "UTC",
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
-			},
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
+			}.Build(),
 		},
 		{
 			name: "Invalid Cron",
-			def: &pb.RecommenderDefinition{
-				Name:        "bad",
-				Recommender: "Cron",
+			def: pb.RecommenderDefinition_builder{
+				Name:        proto.String("bad"),
+				Recommender: proto.String("Cron"),
 				Params: map[string]string{
 					"start": "invalid",
 					"end":   "* * * * *",
 				},
-			},
-			want: &pb.Recommendation{
-				Message: "expected exactly 5 fields, found 1: [invalid]",
-			},
+			}.Build(),
+			want: pb.Recommendation_builder{
+				Message: proto.String("expected exactly 5 fields, found 1: [invalid]"),
+			}.Build(),
 		},
 	}
 
@@ -96,7 +96,7 @@ func TestCronRecommend(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := rec.Recommend(tc.def, nil, nil, nil)
 			// Message varies slightly by library version, check prefix or simple diff
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("Recommend() mismatch (-want +got):\n%s", diff)
 			}
 		})

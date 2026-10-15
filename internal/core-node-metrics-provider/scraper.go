@@ -16,6 +16,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
@@ -97,37 +98,37 @@ func (a *CoreNodeMetricsProvider) scrapeAndSend() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := a.grpcClient.ListPolicies(ctx, &pb.ListPoliciesRequest{
-		ClusterName: a.clusterName,
-	})
+	resp, err := a.grpcClient.ListPolicies(ctx, pb.ListPoliciesRequest_builder{
+		ClusterName: proto.String(a.clusterName),
+	}.Build())
 	if err != nil {
 		slog.Error("Error listing policies", "error", err)
 		return
 	}
 
-	slog.Info("Found policies", "count", len(resp.Policies))
+	slog.Info("Found policies", "count", len(resp.GetPolicies()))
 
 	// 2. Discover needed Kubelet endpoints and group metrics by Policy
 	kubeletConfigs := make(map[string]bool) // key: "port|path"
 	policies := make(map[string]*groupedPolicy)
 
-	for _, pol := range resp.Policies {
+	for _, pol := range resp.GetPolicies() {
 		var relevantMetrics []*pb.MetricDefinition
 		for _, m := range policy.MetricDefinitions(pol) {
-			class, err := a.providerLister.Get(m.Provider)
+			class, err := a.providerLister.Get(m.GetProvider())
 			if err != nil {
-				slog.Warn("MetricProviderClass not found for metric", "class", m.Provider, "metric", m.Name)
+				slog.Warn("MetricProviderClass not found for metric", "class", m.GetProvider(), "metric", m.GetName())
 				continue
 			}
 
 			if class.Spec.Type == "Kubelet" {
 				relevantMetrics = append(relevantMetrics, m)
 				// Record needed Kubelet endpoint
-				port := m.Params["port"]
+				port := m.GetParams()["port"]
 				if port == "" {
 					port = class.Spec.Config["port"]
 				}
-				path := m.Params["path"]
+				path := m.GetParams()["path"]
 				if path == "" {
 					path = class.Spec.Config["path"]
 				}
@@ -139,11 +140,11 @@ func (a *CoreNodeMetricsProvider) scrapeAndSend() {
 		}
 
 		if len(relevantMetrics) > 0 {
-			key := fmt.Sprintf("%s/%s", pol.Id.Namespace, pol.Id.Name)
+			key := fmt.Sprintf("%s/%s", pol.GetId().GetNamespace(), pol.GetId().GetName())
 			policies[key] = &groupedPolicy{
-				Namespace: pol.Id.Namespace,
-				Name:      pol.Id.Name,
-				Selector:  pol.Selector,
+				Namespace: pol.GetId().GetNamespace(),
+				Name:      pol.GetId().GetName(),
+				Selector:  pol.GetSelector(),
 				Metrics:   relevantMetrics,
 			}
 		}
@@ -207,7 +208,7 @@ func (a *CoreNodeMetricsProvider) processGroupedPolicy(policy *groupedPolicy, ku
 		}
 
 		for _, m := range policy.Metrics {
-			class, err := a.providerLister.Get(m.Provider)
+			class, err := a.providerLister.Get(m.GetProvider())
 			if err != nil {
 				continue
 			}
@@ -222,7 +223,7 @@ func (a *CoreNodeMetricsProvider) processGroupedPolicy(policy *groupedPolicy, ku
 			case "Prometheus":
 				batches = a.processPrometheusMetric(pod, m, class)
 			default:
-				slog.Warn("Unknown provider type for metric", "type", class.Spec.Type, "metric", m.Name)
+				slog.Warn("Unknown provider type for metric", "type", class.Spec.Type, "metric", m.GetName())
 			}
 
 			if len(batches) > 0 {
@@ -232,33 +233,33 @@ func (a *CoreNodeMetricsProvider) processGroupedPolicy(policy *groupedPolicy, ku
 	}
 
 	if len(podMetrics) > 0 {
-		req := &pb.IngestMetricsRequest{
+		req := pb.IngestMetricsRequest_builder{
 			Timestamp: timestamppb.Now(),
 			Policies: []*pb.PolicyBatch{
-				{
-					Namespace: policy.Namespace,
-					Name:      policy.Name,
+				pb.PolicyBatch_builder{
+					Namespace: proto.String(policy.Namespace),
+					Name:      proto.String(policy.Name),
 					Batches:   podMetrics,
-				},
+				}.Build(),
 			},
-		}
+		}.Build()
 		a.sendBatch(req)
 	}
 }
 
 func (a *CoreNodeMetricsProvider) sendBatch(pbReq *pb.IngestMetricsRequest) {
-	pbReq.ClusterName = a.clusterName
+	pbReq.SetClusterName(a.clusterName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	slog.Debug("Sending metrics batch", "policies", len(pbReq.Policies))
+	slog.Debug("Sending metrics batch", "policies", len(pbReq.GetPolicies()))
 	resp, err := a.grpcClient.IngestMetrics(ctx, pbReq)
 	if err != nil {
 		slog.Error("Failed to send batch", "error", err)
 		return
 	}
-	slog.Info("Batch sent", "success", resp.Success)
+	slog.Info("Batch sent", "success", resp.GetSuccess())
 }
 
 func isPodReady(pod *corev1.Pod) bool {

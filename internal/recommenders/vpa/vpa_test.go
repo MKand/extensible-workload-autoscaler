@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -19,153 +20,153 @@ func TestRecommend(t *testing.T) {
 	}{
 		{
 			name: "Invalid cfg in def should return with error message in Message",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":            "app",
 					"controlled-resources": "gpu", // only cpu and memory are supported
 				},
-			},
+			}.Build(),
 			state: nil, // not required here
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "Unable to parse recommender configuration",
 		},
 		{
 			name: "Missing container name in params should return with error message in Message",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"cpu-metric": "cpu_p95",
 					"mem-metric": "mem_p95",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "container is undefined",
 		},
 		{
 			name: "Wrong container name (typo) not present in ContainerMetrics should return inactive recommendation",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":  "wrong-container-name",
 					"cpu-metric": "cpu_p95",
 					"mem-metric": "mem_p95",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 268435456,
 									"cpu_p95": 0.5,
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "No Recommendations generated",
 		},
 		{
 			name: "Missed scope: Container (metrics in Global Values instead of PodMetrics) should return PodMetrics is empty",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":  "app",
 					"cpu-metric": "cpu_p95",
 					"mem-metric": "mem_p95",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				Values: map[string]float64{
 					"mem_p95": 268435456,
 					"cpu_p95": 0.5,
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "PodMetrics is empty",
 		},
 		{
 			name: "Missing state should return with error message in Message",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":  "app",
 					"cpu-metric": "cpu_p95",
 					"mem-metric": "mem_p95",
 				},
-			},
+			}.Build(),
 			state: nil, //purposefully omitted here
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "ControlMetrics is missing",
 		},
 		{
 			name: "Missing state.PodMetrics should return with error message in Message",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":  "app",
 					"cpu-metric": "cpu_p95",
 					"mem-metric": "mem_p95",
 				},
-			},
+			}.Build(),
 			state: &pb.ControlMetrics{},
-			want: &pb.Recommendation{
-				IsActive: false,
-			},
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+			}.Build(),
 			wantMsgContains: "PodMetrics is empty",
 		},
 		{
 			name: "Missing cpu metric definition, present mem metric definition should result in message with warnings, request limit with no cpu values",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":         "app",
 					"cpu-metric":        "cpup95", // bad metric name, not in state
 					"mem-metric":        "mem_p95",
 					"mem-safety-margin": "1.10",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 268435456,
 									"cpu_p95": 0.5,
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				WorkloadResources: []*pb.ContainerResource{
-					{
-						ContainerName: "app",
+					pb.ContainerResource_builder{
+						ContainerName: proto.String("app"),
 						Requests: map[string]string{
 							"memory": "282Mi",
 						},
 						Limits: map[string]string{
 							"memory": "282Mi",
 						},
-					},
+					}.Build(),
 				},
-			},
+			}.Build(),
 			wantMsgContains: "warnings: cpu-metric \"cpup95\" not found in state",
 		},
 		{
 			name: "Missing mem metric definition, present cpu metric definition should result in message with warnings, request limit with no mem values",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":         "app",
 					"cpu-metric":        "cpu_p95",
@@ -173,40 +174,40 @@ func TestRecommend(t *testing.T) {
 					"mem-safety-margin": "1.10",
 					"cpu-safety-margin": "1.10",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 268435456,
 									"cpu_p95": 0.5,
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				WorkloadResources: []*pb.ContainerResource{
-					{
-						ContainerName: "app",
+					pb.ContainerResource_builder{
+						ContainerName: proto.String("app"),
 						Requests: map[string]string{
 							"cpu": "550m",
 						},
 						Limits: map[string]string{
 							"cpu": "550m",
 						},
-					},
+					}.Build(),
 				},
-			},
+			}.Build(),
 			wantMsgContains: "mem-metric \"memp95\" not found in state",
 		},
 		{
 			name: "Missing both cpu and mem metric definition should result in warning and nil WorkloadRecommendation",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":         "app",
 					"cpu-metric":        "cpup95", // bad metric name, not in state
@@ -214,30 +215,30 @@ func TestRecommend(t *testing.T) {
 					"mem-safety-margin": "1.10",
 					"cpu-safety-margin": "1.10",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 268435456,
 									"cpu_p95": 0.5,
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive:          false,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive:          proto.Bool(false),
 				WorkloadResources: nil,
-			},
+			}.Build(),
 			wantMsgContains: "Unable to create recommendation as no value memory or cpu values were found",
 		},
 		{
 			name: "verify CPU and Mem fractional core math and max aggregation across multiple pods",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":         "app",
 					"cpu-metric":        "cpu_p95",
@@ -245,42 +246,42 @@ func TestRecommend(t *testing.T) {
 					"mem-safety-margin": "1.10",
 					"cpu-safety-margin": "1.10",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 134217728, // 128 MiB (lower)
 									"cpu_p95": 0.5,       // 500m (higher)
 								},
-							},
-							"sidecar": {
+							}.Build(),
+							"sidecar": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 999999999, // ignored because container is "sidecar"
 									"cpu_p95": 4.0,
 								},
-							},
+							}.Build(),
 						},
-					},
-					"pod-2": {
+					}.Build(),
+					"pod-2": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 268435456, // 256 MiB (higher)
 									"cpu_p95": 0.2,       // 200m (lower)
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				WorkloadResources: []*pb.ContainerResource{
-					{
-						ContainerName: "app",
+					pb.ContainerResource_builder{
+						ContainerName: proto.String("app"),
 						Requests: map[string]string{
 							"cpu":    "550m",
 							"memory": "282Mi",
@@ -289,14 +290,14 @@ func TestRecommend(t *testing.T) {
 							"cpu":    "550m",
 							"memory": "282Mi",
 						},
-					},
+					}.Build(),
 				},
-			},
+			}.Build(),
 			wantMsgContains: "; warnings: owned metric \"cpu-lower-bound\" not found in state, no lower bound for cpu",
 		},
 		{
 			name: "verify that low cpu and mem values are clamped by the floors",
-			def: &pb.RecommenderDefinition{
+			def: pb.RecommenderDefinition_builder{
 				Params: map[string]string{
 					"container":         "app",
 					"cpu-metric":        "cpu_p95",
@@ -304,26 +305,26 @@ func TestRecommend(t *testing.T) {
 					"mem-safety-margin": "1.10",
 					"cpu-safety-margin": "1.10",
 				},
-			},
-			state: &pb.ControlMetrics{
+			}.Build(),
+			state: pb.ControlMetrics_builder{
 				PodContainerMetrics: map[string]*pb.ContainerMetrics{
-					"pod-1": {
+					"pod-1": pb.ContainerMetrics_builder{
 						ContainerMetrics: map[string]*pb.MetricValues{
-							"app": {
+							"app": pb.MetricValues_builder{
 								Values: map[string]float64{
 									"mem_p95": 1048576, // value too low, should get clamped at minMEMMiB
 									"cpu_p95": 0.005,   // value too low, should get clamped at minCPUMilli
 								},
-							},
+							}.Build(),
 						},
-					},
+					}.Build(),
 				},
-			},
-			want: &pb.Recommendation{
-				IsActive: true,
+			}.Build(),
+			want: pb.Recommendation_builder{
+				IsActive: proto.Bool(true),
 				WorkloadResources: []*pb.ContainerResource{
-					{
-						ContainerName: "app",
+					pb.ContainerResource_builder{
+						ContainerName: proto.String("app"),
 						Requests: map[string]string{
 							"cpu":    "10m",
 							"memory": "10Mi",
@@ -332,9 +333,9 @@ func TestRecommend(t *testing.T) {
 							"cpu":    "10m",
 							"memory": "10Mi",
 						},
-					},
+					}.Build(),
 				},
-			},
+			}.Build(),
 			wantMsgContains: "resizing to the target",
 		},
 	}
@@ -343,23 +344,23 @@ func TestRecommend(t *testing.T) {
 	// recommendation is always the target. Its limits equal its requests, so
 	// the recommended limits equal the recommended requests.
 	current := map[string]string{"cpu": "1m", "memory": "1Mi"}
-	workload := &pb.Workload{Pods: []*pb.PodState{{
-		Name:       "pod-1",
-		Containers: []*pb.ContainerState{{Name: "app", Requests: current, Limits: current}},
-	}}}
+	workload := pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{
+		Name:       proto.String("pod-1"),
+		Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: current, Limits: current}.Build()},
+	}.Build()}}.Build()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &VPARecommender{}
 			got := r.Recommend(tt.def, tt.state, nil, workload)
 
 			if tt.wantMsgContains != "" {
-				if !strings.Contains(got.Message, tt.wantMsgContains) {
-					t.Errorf("got.Message = %q, want it to contain %q", got.Message, tt.wantMsgContains)
+				if !strings.Contains(got.GetMessage(), tt.wantMsgContains) {
+					t.Errorf("got.Message = %q, want it to contain %q", got.GetMessage(), tt.wantMsgContains)
 				}
 			}
 
 			// 2. Compare the rest of the fields (ignoring Message if we checked it via substring)
-			opts := []cmp.Option{protocmp.Transform()}
+			opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreDefaultScalars()}
 			if tt.wantMsgContains != "" {
 				opts = append(opts, protocmp.IgnoreFields(&pb.Recommendation{}, "message"))
 			}
@@ -520,7 +521,7 @@ func TestParseConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseConfig(&pb.RecommenderDefinition{Params: tt.params})
+			got, err := parseConfig(pb.RecommenderDefinition_builder{Params: tt.params}.Build())
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("parseConfig() error = %v, want it to contain %q", err, tt.wantErr)

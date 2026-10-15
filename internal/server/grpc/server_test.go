@@ -88,94 +88,94 @@ func TestServerEndToEndGRPC(t *testing.T) {
 	ns := "default"
 
 	// 1. Policy
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web-app", Namespace: ns},
-			Metrics:  []*pb.MetricDefinition{{Name: "cpu_avg", Provider: "kubelet", Params: map[string]string{"type": "cpu"}, Rate: &pb.Rate{Window: durationpb.New(time.Minute), Aggregation: "Avg"}}},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("web-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:  []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu_avg"), Provider: proto.String("kubelet"), Params: map[string]string{"type": "cpu"}, Rate: pb.Rate_builder{Window: durationpb.New(time.Minute), Aggregation: proto.String("Avg")}.Build()}.Build()},
 
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "cpu", Mode: "Active", Type: "Linear", Params: map[string]string{"metric": "cpu_avg", "target": "0.5"}}},
-			MinReplicas: 2, MaxReplicas: 10,
-		},
-	})
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("cpu"), Mode: proto.String("Active"), Type: proto.String("Linear"), Params: map[string]string{"metric": "cpu_avg", "target": "0.5"}}.Build()},
+			MinReplicas: proto.Int32(2), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
 	// 2. Ingest T0
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p2", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p2"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	// 3. Ingest T1 (10s later, +8 diff)
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 108, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p2", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 108, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(108), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p2"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(108), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	// 4. Workload
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}, {Name: "p2", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// 5. Calc Control Metrics
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantCM := &pb.ControlMetrics{
+	wantCM := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"cpu_avg": 0.8},
 		Timestamp:     timestamppb.New(time.Unix(1010, 0)),
-		ReadyReplicas: 2,
-	}
-	if diff := cmp.Diff(wantCM, cm, protocmp.Transform()); diff != "" {
+		ReadyReplicas: proto.Int32(2),
+	}.Build()
+	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
 	// 6. Simulate Recommender
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "cpu",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(4), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("cpu"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(4), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	// 7. Calc Recommendation
 	memStore.CalculateAll()
 
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(4),
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{Replicas: proto.Int32(4), IsActive: true, Phase: "Scaling", Mode: "Active", Name: "cpu", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1010, 0))}, // cpu
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(4), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Mode: proto.String("Active"), Name: proto.String("cpu"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1010, 0))}.Build(), // cpu
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 	// Sort slices for deterministic comparison
 	opts := []cmp.Option{
-		protocmp.Transform(),
-		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.Phase < b.Phase }), // Simple sort if needed
+		protocmp.Transform(), protocmp.IgnoreDefaultScalars(),
+		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.GetPhase() < b.GetPhase() }), // Simple sort if needed
 	}
 	if diff := cmp.Diff(wantResp, resp, opts...); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
@@ -202,100 +202,100 @@ func TestDistributedCollectionGRPC(t *testing.T) {
 	policyName := "dist-app-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "dist-app", Namespace: ns},
-			Metrics:  []*pb.MetricDefinition{{Name: "cpu_avg", Provider: "kubelet", Params: map[string]string{"type": "cpu"}, Rate: &pb.Rate{Window: durationpb.New(time.Minute), Aggregation: "Avg"}}},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("dist-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:  []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu_avg"), Provider: proto.String("kubelet"), Params: map[string]string{"type": "cpu"}, Rate: pb.Rate_builder{Window: durationpb.New(time.Minute), Aggregation: proto.String("Avg")}.Build()}.Build()},
 
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "cpu", Type: "Linear", Params: map[string]string{"metric": "cpu_avg", "target": "0.5"}}},
-			MinReplicas: 1, MaxReplicas: 20,
-		},
-	})
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("cpu"), Type: proto.String("Linear"), Params: map[string]string{"metric": "cpu_avg", "target": "0.5"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(20),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{
-			{Name: "p1", IsReady: true}, {Name: "p2", IsReady: true}, {Name: "p3", IsReady: true}, {Name: "p4", IsReady: true},
-		}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{
+			pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p3"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p4"), IsReady: proto.Bool(true)}.Build(),
+		}}.Build(),
+	}.Build())
 
 	// T0
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p2", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p3", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p4", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p2"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p3"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p4"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	// T1 (Agent A: 10s later)
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 120, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p2", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 120, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(120), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p2"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(120), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	// T1 (Agent B: 12s later)
 	clk.Advance(2 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "p3", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 124, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "p4", Samples: []*pb.MetricSample{{Name: "cpu_avg", Value: 124, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("p3"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(124), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("p4"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_avg"), Value: proto.Float64(124), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	// Avg = 2.0
-	if diff := cmp.Diff(&pb.ControlMetrics{Values: map[string]float64{"cpu_avg": 2.0}, Timestamp: timestamppb.New(time.Unix(1012, 0)), ReadyReplicas: 4}, cm, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(pb.ControlMetrics_builder{Values: map[string]float64{"cpu_avg": 2.0}, Timestamp: timestamppb.New(time.Unix(1012, 0)), ReadyReplicas: proto.Int32(4)}.Build(), cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "cpu",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(16), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("cpu"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(16), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(16),
-		},
-		Explanation:    []*pb.RecommenderStatus{{Replicas: proto.Int32(16), IsActive: true, Phase: "Scaling", Name: "cpu", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1012, 0))}},
+		}.Build(),
+		Explanation:    []*pb.RecommenderStatus{pb.RecommenderStatus_builder{Replicas: proto.Int32(16), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("cpu"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1012, 0))}.Build()},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
-	if diff := cmp.Diff(wantResp, resp, protocmp.Transform()); diff != "" {
+	}.Build()
+	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -319,59 +319,59 @@ func TestExternalMetricGRPC(t *testing.T) {
 	policyName := "ext-app-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "ext-app", Namespace: ns},
-			Metrics:     []*pb.MetricDefinition{{Name: "queue", Provider: "sqs", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "queue_target", Type: "Linear", Params: map[string]string{"metric": "queue", "target": "10.0"}}},
-			MinReplicas: 1, MaxReplicas: 200,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("ext-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("queue"), Provider: proto.String("sqs"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("queue_target"), Type: proto.String("Linear"), Params: map[string]string{"metric": "queue", "target": "10.0"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(200),
+		}.Build(),
+	}.Build())
 
 	var pods []*pb.PodState
 	for i := 0; i < 10; i++ {
-		pods = append(pods, &pb.PodState{Name: fmt.Sprintf("p-%d", i), IsReady: true})
+		pods = append(pods, pb.PodState_builder{Name: proto.String(fmt.Sprintf("p-%d", i)), IsReady: proto.Bool(true)}.Build())
 	}
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, Workload: &pb.Workload{Pods: pods}})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), Workload: pb.Workload_builder{Pods: pods}.Build()}.Build())
 
 	// Ingest Global
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
-				Batches: []*pb.MetricBatch{{PodName: "", Samples: []*pb.MetricSample{{Name: "queue", Value: 1000, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}},
-			},
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
+				Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String(""), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("queue"), Value: proto.Float64(1000), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	// Avg = 1000/10 = 100.
-	if diff := cmp.Diff(&pb.ControlMetrics{Values: map[string]float64{"queue": 100.0}, Timestamp: timestamppb.New(time.Unix(1000, 0)), ReadyReplicas: 10}, cm, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(pb.ControlMetrics_builder{Values: map[string]float64{"queue": 100.0}, Timestamp: timestamppb.New(time.Unix(1000, 0)), ReadyReplicas: proto.Int32(10)}.Build(), cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "queue_target",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(100), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("queue_target"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(100),
-		},
-		Explanation:    []*pb.RecommenderStatus{{Replicas: proto.Int32(100), IsActive: true, Phase: "Scaling", Name: "queue_target", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))}},
+		}.Build(),
+		Explanation:    []*pb.RecommenderStatus{pb.RecommenderStatus_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("queue_target"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build()},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
-	if diff := cmp.Diff(wantResp, resp, protocmp.Transform()); diff != "" {
+	}.Build()
+	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -394,60 +394,60 @@ func TestPerPodExternalMetricGRPC(t *testing.T) {
 	policyName := "per-pod-ext-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-			Metrics:     []*pb.MetricDefinition{{Name: "sidecar_latency", Provider: "sidecar-provider", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "latency_target", Type: "Linear", Params: map[string]string{"metric": "sidecar_latency", "target": "100"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("sidecar_latency"), Provider: proto.String("sidecar-provider"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("latency_target"), Type: proto.String("Linear"), Params: map[string]string{"metric": "sidecar_latency", "target": "100"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "pod-1", IsReady: true}, {Name: "pod-2", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("pod-1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("pod-2"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{
-				Namespace: ns, Name: policyName,
+			pb.PolicyBatch_builder{
+				Namespace: proto.String(ns), Name: proto.String(policyName),
 				Batches: []*pb.MetricBatch{
-					{PodName: "pod-1", Samples: []*pb.MetricSample{{Name: "sidecar_latency", Value: 50, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
-					{PodName: "pod-2", Samples: []*pb.MetricSample{{Name: "sidecar_latency", Value: 150, Timestamp: timestamppb.New(time.Unix(ts, 0))}}},
+					pb.MetricBatch_builder{PodName: proto.String("pod-1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("sidecar_latency"), Value: proto.Float64(50), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
+					pb.MetricBatch_builder{PodName: proto.String("pod-2"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("sidecar_latency"), Value: proto.Float64(150), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build(),
 				},
-			},
+			}.Build(),
 		},
-	})
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	// Avg = (50+150)/2 = 100.
-	if diff := cmp.Diff(&pb.ControlMetrics{Values: map[string]float64{"sidecar_latency": 100.0}, Timestamp: timestamppb.New(time.Unix(1000, 0)), ReadyReplicas: 2}, cm, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(pb.ControlMetrics_builder{Values: map[string]float64{"sidecar_latency": 100.0}, Timestamp: timestamppb.New(time.Unix(1000, 0)), ReadyReplicas: proto.Int32(2)}.Build(), cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "latency_target",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(2), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("latency_target"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(2), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(2),
-		},
-		Explanation:    []*pb.RecommenderStatus{{Replicas: proto.Int32(2), IsActive: true, Phase: "Scaling", Name: "latency_target", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))}},
+		}.Build(),
+		Explanation:    []*pb.RecommenderStatus{pb.RecommenderStatus_builder{Replicas: proto.Int32(2), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("latency_target"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build()},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
-	if diff := cmp.Diff(wantResp, resp, protocmp.Transform()); diff != "" {
+	}.Build()
+	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -470,56 +470,56 @@ func TestScaleToZeroGRPC(t *testing.T) {
 	ns := "default"
 	window := "5"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "zero-app", Namespace: ns},
-			Metrics:     []*pb.MetricDefinition{{Name: "queue", Provider: "sqs", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "target", Type: "Linear", Params: map[string]string{"metric": "queue", "target": "10.0"}}},
-			Activation:  []*pb.RecommenderDefinition{{Recommender: "Threshold", Name: "act_queue", Type: "Threshold", Params: map[string]string{"metric": "queue", "threshold": "0", "window": window}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("zero-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("queue"), Provider: proto.String("sqs"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("target"), Type: proto.String("Linear"), Params: map[string]string{"metric": "queue", "target": "10.0"}}.Build()},
+			Activation:  []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Threshold"), Name: proto.String("act_queue"), Type: proto.String("Threshold"), Params: map[string]string{"metric": "queue", "threshold": "0", "window": window}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{}}.Build(),
+	}.Build())
 
 	// 1. Wake Up
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies:    []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "", Samples: []*pb.MetricSample{{Name: "queue", Value: 50, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+		Policies:    []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String(""), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("queue"), Value: proto.Float64(50), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "act_queue",
-		Recommendation: &pb.Recommendation{IsActive: true},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "target",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(5), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("act_queue"),
+		Recommendation: pb.Recommendation_builder{IsActive: proto.Bool(true)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("target"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(5), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantWakeUp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantWakeUp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(5),
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{Replicas: proto.Int32(5), IsActive: true, Phase: "Scaling", Name: "target", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
-			{IsActive: true, Phase: "Activation", Name: "act_queue", Type: "Threshold", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(5), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("target"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
+			pb.RecommenderStatus_builder{IsActive: proto.Bool(true), Phase: proto.String("Activation"), Name: proto.String("act_queue"), Type: proto.String("Threshold"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 	opts := []cmp.Option{
-		protocmp.Transform(),
-		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.Phase < b.Phase }),
+		protocmp.Transform(), protocmp.IgnoreDefaultScalars(),
+		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.GetPhase() < b.GetPhase() }),
 	}
 	if diff := cmp.Diff(wantWakeUp, resp, opts...); diff != "" {
 		t.Errorf("WakeUp mismatch (-want +got):\n%s", diff)
@@ -528,35 +528,35 @@ func TestScaleToZeroGRPC(t *testing.T) {
 	// 2. Cooldown
 	clk.Advance(3 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies:    []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "", Samples: []*pb.MetricSample{{Name: "queue", Value: 0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+		Policies:    []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String(""), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("queue"), Value: proto.Float64(0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "act_queue",
-		Recommendation: &pb.Recommendation{IsActive: false},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "target",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(0), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("act_queue"),
+		Recommendation: pb.Recommendation_builder{IsActive: proto.Bool(false)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("target"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(0), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ = client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ = client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantCooldown := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantCooldown := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(1), // MinReplicas (Server kept active due to window)
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{Replicas: proto.Int32(0), IsActive: true, Phase: "Scaling", Name: "target", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1003, 0))},
-			{IsActive: false, Phase: "Activation", Name: "act_queue", Type: "Threshold", LastUpdated: timestamppb.New(time.Unix(1003, 0))},
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(0), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("target"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1003, 0))}.Build(),
+			pb.RecommenderStatus_builder{IsActive: proto.Bool(false), Phase: proto.String("Activation"), Name: proto.String("act_queue"), Type: proto.String("Threshold"), LastUpdated: timestamppb.New(time.Unix(1003, 0))}.Build(),
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 	if diff := cmp.Diff(wantCooldown, resp, opts...); diff != "" {
 		t.Errorf("Cooldown mismatch (-want +got):\n%s", diff)
 	}
@@ -564,33 +564,33 @@ func TestScaleToZeroGRPC(t *testing.T) {
 	// 3. Scale Down
 	clk.Advance(6 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies:    []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "", Samples: []*pb.MetricSample{{Name: "queue", Value: 0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+		Policies:    []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String(""), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("queue"), Value: proto.Float64(0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "act_queue",
-		Recommendation: &pb.Recommendation{IsActive: false},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "target",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(0), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("act_queue"),
+		Recommendation: pb.Recommendation_builder{IsActive: proto.Bool(false)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("target"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(0), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ = client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ = client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantScaleDown := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantScaleDown := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(0),
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{IsActive: false, Phase: "Activation", Name: "act_queue", Type: "Threshold", LastUpdated: timestamppb.New(time.Unix(1009, 0))},
+			pb.RecommenderStatus_builder{IsActive: proto.Bool(false), Phase: proto.String("Activation"), Name: proto.String("act_queue"), Type: proto.String("Threshold"), LastUpdated: timestamppb.New(time.Unix(1009, 0))}.Build(),
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 	if diff := cmp.Diff(wantScaleDown, resp, opts...); diff != "" {
 		t.Errorf("ScaleDown mismatch (-want +got):\n%s", diff)
 	}
@@ -614,55 +614,55 @@ func TestDryRunGRPC(t *testing.T) {
 	policyName := "dry-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "dry-app", Namespace: ns},
-			Metrics:  []*pb.MetricDefinition{{Name: "m1", Provider: "kubelet", Params: map[string]string{"type": "cpu"}, Gauge: &pb.Gauge{Aggregation: "Avg"}}},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("dry-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:  []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m1"), Provider: proto.String("kubelet"), Params: map[string]string{"type": "cpu"}, Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
 			Scaling: []*pb.RecommenderDefinition{
-				{Recommender: "Linear", Name: "active_obj", Mode: "Active", Type: "Linear", Params: map[string]string{"metric": "m1", "target": "10.0"}},
-				{Recommender: "Linear", Name: "dry_obj", Mode: "DryRun", Type: "Linear", Params: map[string]string{"metric": "m1", "target": "1.0"}},
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("active_obj"), Mode: proto.String("Active"), Type: proto.String("Linear"), Params: map[string]string{"metric": "m1", "target": "10.0"}}.Build(),
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("dry_obj"), Mode: proto.String("DryRun"), Type: proto.String("Linear"), Params: map[string]string{"metric": "m1", "target": "1.0"}}.Build(),
 			},
-			MinReplicas: 1, MaxReplicas: 200,
-		},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(200),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}}})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build()}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies:    []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m1", Value: 100, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+		Policies:    []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m1"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "active_obj",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(10), IsActive: true},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "dry_obj",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(100), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("active_obj"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(10), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("dry_obj"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(10),
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{Replicas: proto.Int32(10), IsActive: true, Phase: "Scaling", Mode: "Active", Name: "active_obj", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
-			{Replicas: proto.Int32(100), IsActive: true, Phase: "Scaling", Mode: "DryRun", Name: "dry_obj", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(10), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Mode: proto.String("Active"), Name: proto.String("active_obj"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Mode: proto.String("DryRun"), Name: proto.String("dry_obj"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 
 	opts := []cmp.Option{
-		protocmp.Transform(),
+		protocmp.Transform(), protocmp.IgnoreDefaultScalars(),
 		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool {
 			return a.GetReplicas() < b.GetReplicas()
 		}),
@@ -694,69 +694,69 @@ func TestHistogramWithFilterGRPC(t *testing.T) {
 	policyName := "filter-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "filter-app", Namespace: ns},
-			Metrics: []*pb.MetricDefinition{{
-				Name: "api_latency", Provider: "kubelet",
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("filter-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{
+				Name: proto.String("api_latency"), Provider: proto.String("kubelet"),
 				Filter:       map[string]string{"path": "/api"},
-				Distribution: &pb.Distribution{Percentile: "p99"},
-			}},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "target", Type: "Linear", Params: map[string]string{"metric": "api_latency", "target": "0.2"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+				Distribution: pb.Distribution_builder{Percentile: proto.String("p99")}.Build(),
+			}.Build()},
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("target"), Type: proto.String("Linear"), Params: map[string]string{"metric": "api_latency", "target": "0.2"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}}})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build()}.Build())
 
 	// T0
 	ts := clk.Now().Unix()
 	buckets0 := map[string]uint64{"0.1": 0, "0.5": 0, "+Inf": 0}
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: ns, Name: policyName,
-			Batches: []*pb.MetricBatch{{
-				PodName: "p1",
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String(ns), Name: proto.String(policyName),
+			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName: proto.String("p1"),
 				Samples: []*pb.MetricSample{
-					{Name: "api_latency", Labels: map[string]string{"path": "/api", "method": "GET"}, Histogram: &pb.Histogram{Buckets: buckets0}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "api_latency", Labels: map[string]string{"path": "/api", "method": "POST"}, Histogram: &pb.Histogram{Buckets: buckets0}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "api_latency", Labels: map[string]string{"path": "/health"}, Histogram: &pb.Histogram{Buckets: buckets0}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/api", "method": "GET"}, Histogram: pb.Histogram_builder{Buckets: buckets0}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/api", "method": "POST"}, Histogram: pb.Histogram_builder{Buckets: buckets0}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/health"}, Histogram: pb.Histogram_builder{Buckets: buckets0}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
 				},
-			}},
-		}},
-	})
+			}.Build()},
+		}.Build()},
+	}.Build())
 
 	// T1 (10s)
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: ns, Name: policyName,
-			Batches: []*pb.MetricBatch{{
-				PodName: "p1",
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String(ns), Name: proto.String(policyName),
+			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName: proto.String("p1"),
 				Samples: []*pb.MetricSample{
 					// A: 50 fast
-					{Name: "api_latency", Labels: map[string]string{"path": "/api", "method": "GET"}, Histogram: &pb.Histogram{Buckets: map[string]uint64{"0.1": 50, "0.5": 50, "+Inf": 50}}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/api", "method": "GET"}, Histogram: pb.Histogram_builder{Buckets: map[string]uint64{"0.1": 50, "0.5": 50, "+Inf": 50}}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
 					// B: 50 slow
-					{Name: "api_latency", Labels: map[string]string{"path": "/api", "method": "POST"}, Histogram: &pb.Histogram{Buckets: map[string]uint64{"0.1": 0, "0.5": 50, "+Inf": 50}}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/api", "method": "POST"}, Histogram: pb.Histogram_builder{Buckets: map[string]uint64{"0.1": 0, "0.5": 50, "+Inf": 50}}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
 					// C: 1000 very slow (Should be filtered out)
-					{Name: "api_latency", Labels: map[string]string{"path": "/health"}, Histogram: &pb.Histogram{Buckets: map[string]uint64{"0.1": 0, "0.5": 0, "+Inf": 1000}}, Timestamp: timestamppb.New(time.Unix(ts, 0))},
+					pb.MetricSample_builder{Name: proto.String("api_latency"), Labels: map[string]string{"path": "/health"}, Histogram: pb.Histogram_builder{Buckets: map[string]uint64{"0.1": 0, "0.5": 0, "+Inf": 1000}}.Build(), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
 				},
-			}},
-		}},
-	})
+			}.Build()},
+		}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	// Value 0.492
-	wantCM := &pb.ControlMetrics{Values: map[string]float64{"api_latency": 0.492}, Timestamp: timestamppb.New(time.Unix(1010, 0)), ReadyReplicas: 1}
-	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+	wantCM := pb.ControlMetrics_builder{Values: map[string]float64{"api_latency": 0.492}, Timestamp: timestamppb.New(time.Unix(1010, 0)), ReadyReplicas: proto.Int32(1)}.Build()
+	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -778,77 +778,77 @@ func TestHistogramLatencyScalingGRPC(t *testing.T) {
 	policyName := "hist-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "hist-app", Namespace: ns},
-			Metrics: []*pb.MetricDefinition{{
-				Name: "latency", Provider: "kubelet",
-				Distribution: &pb.Distribution{Percentile: "p90"},
-			}},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "latency_obj", Type: "Linear", Params: map[string]string{"metric": "latency", "target": "0.1"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("hist-app"), Namespace: proto.String(ns)}.Build(),
+			Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{
+				Name: proto.String("latency"), Provider: proto.String("kubelet"),
+				Distribution: pb.Distribution_builder{Percentile: proto.String("p90")}.Build(),
+			}.Build()},
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("latency_obj"), Type: proto.String("Linear"), Params: map[string]string{"metric": "latency", "target": "0.1"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// T0
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: ns, Name: policyName,
-			Batches: []*pb.MetricBatch{{
-				PodName: "p1",
-				Samples: []*pb.MetricSample{{
-					Name: "latency", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-					Histogram: &pb.Histogram{Buckets: map[string]uint64{"0.05": 0, "0.2": 0, "+Inf": 0}},
-				}},
-			}},
-		}},
-	})
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String(ns), Name: proto.String(policyName),
+			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName: proto.String("p1"),
+				Samples: []*pb.MetricSample{pb.MetricSample_builder{
+					Name: proto.String("latency"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+					Histogram: pb.Histogram_builder{Buckets: map[string]uint64{"0.05": 0, "0.2": 0, "+Inf": 0}}.Build(),
+				}.Build()},
+			}.Build()},
+		}.Build()},
+	}.Build())
 
 	// T1 (10s later)
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: ns, Name: policyName,
-			Batches: []*pb.MetricBatch{{
-				PodName: "p1",
-				Samples: []*pb.MetricSample{{
-					Name: "latency", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-					Histogram: &pb.Histogram{Buckets: map[string]uint64{"0.05": 80, "0.2": 100, "+Inf": 100}},
-				}},
-			}},
-		}},
-	})
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String(ns), Name: proto.String(policyName),
+			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName: proto.String("p1"),
+				Samples: []*pb.MetricSample{pb.MetricSample_builder{
+					Name: proto.String("latency"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+					Histogram: pb.Histogram_builder{Buckets: map[string]uint64{"0.05": 80, "0.2": 100, "+Inf": 100}}.Build(),
+				}.Build()},
+			}.Build()},
+		}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "latency_obj",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(2), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("latency_obj"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(2), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(2),
-		},
-		Explanation:    []*pb.RecommenderStatus{{Replicas: proto.Int32(2), IsActive: true, Phase: "Scaling", Name: "latency_obj", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1010, 0))}},
+		}.Build(),
+		Explanation:    []*pb.RecommenderStatus{pb.RecommenderStatus_builder{Replicas: proto.Int32(2), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("latency_obj"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1010, 0))}.Build()},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
-	if diff := cmp.Diff(wantResp, resp, protocmp.Transform()); diff != "" {
+	}.Build()
+	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -869,42 +869,42 @@ func TestWindowedMetricsGRPC(t *testing.T) {
 	policyName := "window-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
 			Metrics: []*pb.MetricDefinition{
-				{
-					Name: "cpu_hist", DecayingDistribution: &pb.DecayingDistribution{HalfLife: durationpb.New(24 * time.Hour), BucketSize: "0.1", Percentile: "p100"},
-				},
+				pb.MetricDefinition_builder{
+					Name: proto.String("cpu_hist"), DecayingDistribution: pb.DecayingDistribution_builder{HalfLife: durationpb.New(24 * time.Hour), BucketSize: proto.String("0.1"), Percentile: proto.String("p100")}.Build(),
+				}.Build(),
 			},
-			Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "cpu", Type: "Linear", Params: map[string]string{"metric": "cpu_hist", "target": "0.5"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+			Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("cpu"), Type: proto.String("Linear"), Params: map[string]string{"metric": "cpu_hist", "target": "0.5"}}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// T0: Ingest 1.0 (High)
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu_hist", Value: 1.0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_hist"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
 
 	// Verify Control Metrics
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
-	wantCM := &pb.ControlMetrics{
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
+	wantCM := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"cpu_hist": 1.1},
 		Timestamp:     timestamppb.New(time.Unix(1000, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -925,35 +925,35 @@ func TestDeletePolicyGRPC(t *testing.T) {
 
 	policyName := "to-delete"
 	ns := "default"
-	id := &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()
 
 	// 1. Create Policy
-	mustUpdatePolicy(t, client, &pb.Policy{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	mustUpdatePolicy(t, client, pb.Policy_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
 	// 2. Verify exists
-	resp, _ := client.ListPolicies(ctx, &pb.ListPoliciesRequest{ClusterName: "default"})
-	wantResp := &pb.ListPoliciesResponse{
-		Policies: []*pb.Policy{{Id: id}},
-	}
-	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), ignoreEtag); diff != "" {
+	resp, _ := client.ListPolicies(ctx, pb.ListPoliciesRequest_builder{ClusterName: proto.String("default")}.Build())
+	wantResp := pb.ListPoliciesResponse_builder{
+		Policies: []*pb.Policy{pb.Policy_builder{Id: id}.Build()},
+	}.Build()
+	if diff := cmp.Diff(wantResp, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), ignoreEtag); diff != "" {
 		t.Fatalf("ListPolicies mismatch (-want +got):\n%s", diff)
 	}
 
 	// 3. Delete
-	_, err := client.DeletePolicy(ctx, &pb.DeletePolicyRequest{Id: id})
+	_, err := client.DeletePolicy(ctx, pb.DeletePolicyRequest_builder{Id: id}.Build())
 	if err != nil {
 		t.Errorf("DeletePolicy failed: %v", err)
 	}
 
 	// 4. Delete again (idempotency)
-	_, err = client.DeletePolicy(ctx, &pb.DeletePolicyRequest{Id: id})
+	_, err = client.DeletePolicy(ctx, pb.DeletePolicyRequest_builder{Id: id}.Build())
 	if err != nil {
 		t.Errorf("DeletePolicy second call failed (idempotency): %v", err)
 	}
 
 	// 5. Verify gone
-	resp, _ = client.ListPolicies(ctx, &pb.ListPoliciesRequest{ClusterName: "default"})
-	if diff := cmp.Diff(&pb.ListPoliciesResponse{}, resp, protocmp.Transform()); diff != "" {
+	resp, _ = client.ListPolicies(ctx, pb.ListPoliciesRequest_builder{ClusterName: proto.String("default")}.Build())
+	if diff := cmp.Diff(&pb.ListPoliciesResponse{}, resp, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("ListPolicies mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -977,9 +977,9 @@ func TestValidationGRPC(t *testing.T) {
 		{
 			name: "UpdatePolicy: Missing ClusterName in ID",
 			call: func() error {
-				_, err := client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
-					Policy: &pb.Policy{Id: &pb.PolicyId{Namespace: "n", Name: "p"}},
-				})
+				_, err := client.UpdatePolicy(ctx, pb.UpdatePolicyRequest_builder{
+					Policy: pb.Policy_builder{Id: pb.PolicyId_builder{Namespace: proto.String("n"), Name: proto.String("p")}.Build()}.Build(),
+				}.Build())
 				return err
 			},
 			wantCode: codes.InvalidArgument,
@@ -995,9 +995,9 @@ func TestValidationGRPC(t *testing.T) {
 		{
 			name: "DeletePolicy: Missing ClusterName",
 			call: func() error {
-				_, err := client.DeletePolicy(ctx, &pb.DeletePolicyRequest{
-					Id: &pb.PolicyId{Namespace: "n", Name: "p"},
-				})
+				_, err := client.DeletePolicy(ctx, pb.DeletePolicyRequest_builder{
+					Id: pb.PolicyId_builder{Namespace: proto.String("n"), Name: proto.String("p")}.Build(),
+				}.Build())
 				return err
 			},
 			wantCode: codes.InvalidArgument,
@@ -1005,10 +1005,10 @@ func TestValidationGRPC(t *testing.T) {
 		{
 			name: "UpdateWorkload: Missing ClusterName",
 			call: func() error {
-				_, err := client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-					Id:       &pb.PolicyId{Namespace: "n", Name: "p"},
+				_, err := client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+					Id:       pb.PolicyId_builder{Namespace: proto.String("n"), Name: proto.String("p")}.Build(),
 					Workload: &pb.Workload{},
-				})
+				}.Build())
 				return err
 			},
 			wantCode: codes.InvalidArgument,
@@ -1016,9 +1016,9 @@ func TestValidationGRPC(t *testing.T) {
 		{
 			name: "GetControlMetrics: Missing ClusterName",
 			call: func() error {
-				_, err := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{
-					Id: &pb.PolicyId{Namespace: "n", Name: "p"},
-				})
+				_, err := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{
+					Id: pb.PolicyId_builder{Namespace: proto.String("n"), Name: proto.String("p")}.Build(),
+				}.Build())
 				return err
 			},
 			wantCode: codes.InvalidArgument,
@@ -1026,9 +1026,9 @@ func TestValidationGRPC(t *testing.T) {
 		{
 			name: "IngestMetrics: Missing ClusterName",
 			call: func() error {
-				_, err := client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
+				_, err := client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
 					Timestamp: timestamppb.New(time.Unix(1234, 0)),
-				})
+				}.Build())
 				return err
 			},
 			wantCode: codes.InvalidArgument,
@@ -1069,64 +1069,64 @@ func TestMultiplePoliciesGRPC(t *testing.T) {
 
 	// Policy 1: CPU
 	p1 := "policy-cpu"
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p1},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app-cpu", Namespace: "default"},
-			Metrics:     []*pb.MetricDefinition{{Name: "cpu", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p1)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app-cpu"), Namespace: proto.String("default")}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("cpu"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
 	// Policy 2: Memory
 	p2 := "policy-mem"
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p2},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app-mem", Namespace: "default"},
-			Metrics:     []*pb.MetricDefinition{{Name: "mem", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p2)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app-mem"), Namespace: proto.String("default")}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("mem"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p1},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p2},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p1)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p2)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{Namespace: "default", Name: p1, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "cpu", Value: 0.5, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}},
-			{Namespace: "default", Name: p2, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "mem", Value: 1024, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}},
+			pb.PolicyBatch_builder{Namespace: proto.String("default"), Name: proto.String(p1), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu"), Value: proto.Float64(0.5), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build(),
+			pb.PolicyBatch_builder{Namespace: proto.String("default"), Name: proto.String(p2), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("mem"), Value: proto.Float64(1024), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build(),
 		},
-	})
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm1, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p1}})
-	wantCM1 := &pb.ControlMetrics{
+	cm1, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p1)}.Build()}.Build())
+	wantCM1 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"cpu": 0.5},
 		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM1, cm1, protocmp.Transform()); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM1, cm1, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Policy 1 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
-	cm2, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: p2}})
-	wantCM2 := &pb.ControlMetrics{
+	cm2, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String(p2)}.Build()}.Build())
+	wantCM2 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"mem": 1024},
 		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM2, cm2, protocmp.Transform()); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM2, cm2, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Policy 2 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -1147,63 +1147,63 @@ func TestNamespaceIsolationGRPC(t *testing.T) {
 	name := "shared-name"
 
 	// NS 1
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: "ns1", Name: name},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: "ns1"},
-			Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns1"), Name: proto.String(name)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String("ns1")}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
 	// NS 2
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: "ns2", Name: name},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: "ns2"},
-			Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns2"), Name: proto.String(name)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String("ns2")}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: "ns1", Name: name},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p", IsReady: true}}},
-	})
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: "ns2", Name: name},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns1"), Name: proto.String(name)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns2"), Name: proto.String(name)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
 		Policies: []*pb.PolicyBatch{
-			{Namespace: "ns1", Name: name, Batches: []*pb.MetricBatch{{PodName: "p", Samples: []*pb.MetricSample{{Name: "m", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}},
-			{Namespace: "ns2", Name: name, Batches: []*pb.MetricBatch{{PodName: "p", Samples: []*pb.MetricSample{{Name: "m", Value: 20, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}},
+			pb.PolicyBatch_builder{Namespace: proto.String("ns1"), Name: proto.String(name), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build(),
+			pb.PolicyBatch_builder{Namespace: proto.String("ns2"), Name: proto.String(name), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(20), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build(),
 		},
-	})
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm1, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: "ns1", Name: name}})
-	wantCM1 := &pb.ControlMetrics{
+	cm1, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns1"), Name: proto.String(name)}.Build()}.Build())
+	wantCM1 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"m": 10},
 		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM1, cm1, protocmp.Transform()); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM1, cm1, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("NS1 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
-	cm2, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: "ns2", Name: name}})
-	wantCM2 := &pb.ControlMetrics{
+	cm2, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("ns2"), Name: proto.String(name)}.Build()}.Build())
+	wantCM2 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"m": 20},
 		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM2, cm2, protocmp.Transform()); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM2, cm2, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("NS2 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -1228,53 +1228,53 @@ func TestMetricAggregationGRPC(t *testing.T) {
 	policyName := "agg-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
 			Metrics: []*pb.MetricDefinition{
-				{Name: "m_avg", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}},
-				{Name: "m_sum", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Sum"}},
-				{Name: "m_max", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Max"}},
-				{Name: "m_min", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Min"}},
+				pb.MetricDefinition_builder{Name: proto.String("m_avg"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_sum"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_max"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_min"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Min")}.Build()}.Build(),
 			},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}, {Name: "p2", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: ns, Name: policyName,
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String(ns), Name: proto.String(policyName),
 			Batches: []*pb.MetricBatch{
-				{PodName: "p1", Samples: []*pb.MetricSample{
-					{Name: "m_avg", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_sum", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_max", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_min", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-				}},
-				{PodName: "p2", Samples: []*pb.MetricSample{
-					{Name: "m_avg", Value: 30, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_sum", Value: 30, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_max", Value: 30, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-					{Name: "m_min", Value: 30, Timestamp: timestamppb.New(time.Unix(ts, 0))},
-				}},
+				pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{
+					pb.MetricSample_builder{Name: proto.String("m_avg"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_sum"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_max"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_min"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+				}}.Build(),
+				pb.MetricBatch_builder{PodName: proto.String("p2"), Samples: []*pb.MetricSample{
+					pb.MetricSample_builder{Name: proto.String("m_avg"), Value: proto.Float64(30), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_sum"), Value: proto.Float64(30), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_max"), Value: proto.Float64(30), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_min"), Value: proto.Float64(30), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build(),
+				}}.Build(),
 			},
-		}},
-	})
+		}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantCM := &pb.ControlMetrics{
+	wantCM := pb.ControlMetrics_builder{
 		Values: map[string]float64{
 			"m_avg": 20.0,
 			"m_sum": 40.0,
@@ -1282,10 +1282,10 @@ func TestMetricAggregationGRPC(t *testing.T) {
 			"m_min": 10.0,
 		},
 		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
-		ReadyReplicas: 2,
-	}
+		ReadyReplicas: proto.Int32(2),
+	}.Build()
 
-	if diff := cmp.Diff(wantCM, cm, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(wantCM, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("Aggregation mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -1306,48 +1306,48 @@ func TestRecommenderInactiveGRPC(t *testing.T) {
 	policyName := "inactive-rec-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-			Metrics:  []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:  []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
 			Scaling: []*pb.RecommenderDefinition{
-				{Recommender: "Linear", Name: "r_active", Type: "Linear", Params: map[string]string{"target": "5"}},
-				{Recommender: "Linear", Name: "r_inactive", Type: "Linear", Params: map[string]string{"target": "100"}},
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("r_active"), Type: proto.String("Linear"), Params: map[string]string{"target": "5"}}.Build(),
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("r_inactive"), Type: proto.String("Linear"), Params: map[string]string{"target": "100"}}.Build(),
 			},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
 
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "r_active",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(5), IsActive: true},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "r_inactive",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(100), IsActive: false},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("r_active"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(5), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("r_inactive"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(false)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
 
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantResp := &pb.GetRecommendationResponse{
-		Recommendation: &pb.Recommendation{
+	wantResp := pb.GetRecommendationResponse_builder{
+		Recommendation: pb.Recommendation_builder{
 			Replicas: proto.Int32(5),
-		},
+		}.Build(),
 		Explanation: []*pb.RecommenderStatus{
-			{Replicas: proto.Int32(5), IsActive: true, Phase: "Scaling", Name: "r_active", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
-			{Replicas: proto.Int32(100), IsActive: false, Phase: "Scaling", Name: "r_inactive", Type: "Linear", LastUpdated: timestamppb.New(time.Unix(1000, 0))},
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(5), IsActive: proto.Bool(true), Phase: proto.String("Scaling"), Name: proto.String("r_active"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
+			pb.RecommenderStatus_builder{Replicas: proto.Int32(100), IsActive: proto.Bool(false), Phase: proto.String("Scaling"), Name: proto.String("r_inactive"), Type: proto.String("Linear"), LastUpdated: timestamppb.New(time.Unix(1000, 0))}.Build(),
 		},
 		MetricStatuses: resp.GetMetricStatuses(),
-	}
+	}.Build()
 
 	opts := []cmp.Option{
-		protocmp.Transform(),
-		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.Name < b.Name }),
+		protocmp.Transform(), protocmp.IgnoreDefaultScalars(),
+		protocmp.SortRepeated(func(a, b *pb.RecommenderStatus) bool { return a.GetName() < b.GetName() }),
 	}
 	if diff := cmp.Diff(wantResp, resp, opts...); diff != "" {
 		t.Errorf("Recommendation mismatch (-want +got):\n%s", diff)
@@ -1373,93 +1373,93 @@ func TestDecayingHistogramLifecycleGRPC(t *testing.T) {
 	ns := "default"
 
 	// 1. Configure Policy (10s Half-Life)
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
 			Metrics: []*pb.MetricDefinition{
-				{
-					Name: "load", DecayingDistribution: &pb.DecayingDistribution{HalfLife: durationpb.New(10 * time.Second), BucketSize: "1.0", Percentile: "p100"},
-				},
+				pb.MetricDefinition_builder{
+					Name: proto.String("load"), DecayingDistribution: pb.DecayingDistribution_builder{HalfLife: durationpb.New(10 * time.Second), BucketSize: proto.String("1.0"), Percentile: proto.String("p100")}.Build(),
+				}.Build(),
 			},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
 
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// 2. T0: Ingest 100
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "load", Value: 100.0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("load"), Value: proto.Float64(100.0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
-	wantCM0 := &pb.ControlMetrics{
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
+	wantCM0 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"load": 101.0}, // Bucket upper bound
 		Timestamp:     timestamppb.New(time.Unix(1000, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM0, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM0, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("T0 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
 	// 3. T1: 10s later (1 Half-Life). No new data.
 	clk.Advance(10 * time.Second)
 	memStore.CalculateAll()
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
 	// Expectation: Histogram p100 sticks to the last maximum seen until new data arrives.
-	wantCM1 := &pb.ControlMetrics{
+	wantCM1 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"load": 101.0},
 		Timestamp:     timestamppb.New(time.Unix(1010, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM1, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM1, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("T1 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
 	// 4. T3: Ingest 200.
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "load", Value: 200.0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("load"), Value: proto.Float64(200.0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantCM3 := &pb.ControlMetrics{
+	wantCM3 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"load": 201.0},
 		Timestamp:     timestamppb.New(time.Unix(1010, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM3, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM3, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("T3 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 
 	// 5. T4: Long Gap (1h) then 300.
 	clk.Advance(1 * time.Hour)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "load", Value: 300.0, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("load"), Value: proto.Float64(300.0), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	memStore.CalculateAll()
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
-	wantCM4 := &pb.ControlMetrics{
+	wantCM4 := pb.ControlMetrics_builder{
 		Values:        map[string]float64{"load": 301.0},
 		Timestamp:     timestamppb.New(time.Unix(4610, 0)),
-		ReadyReplicas: 1,
-	}
-	if diff := cmp.Diff(wantCM4, cm, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+		ReadyReplicas: proto.Int32(1),
+	}.Build()
+	if diff := cmp.Diff(wantCM4, cm, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 		t.Errorf("T4 ControlMetrics mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -1475,9 +1475,9 @@ func TestPolicyNotFoundGRPC(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	_, err := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: "default", Name: "missing"},
-	})
+	_, err := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String("missing")}.Build(),
+	}.Build())
 
 	if err == nil {
 		t.Errorf("GetControlMetrics for missing policy should error")
@@ -1500,43 +1500,43 @@ func TestRemoveScalingSectionGRPC(t *testing.T) {
 	ctx := context.Background()
 	policyName := "remove-scaling-policy"
 	ns := "default"
-	id := &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()
 
 	// 1. Policy with Scaling
-	stored := mustUpdatePolicy(t, client, &pb.Policy{
+	stored := mustUpdatePolicy(t, client, pb.Policy_builder{
 		Id:          id,
-		Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-		Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-		Scaling:     []*pb.RecommenderDefinition{{Recommender: "Linear", Name: "r1", Type: "Linear", Params: map[string]string{"target": "10"}}},
-		MinReplicas: 1, MaxReplicas: 100,
-	})
+		Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+		Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+		Scaling:     []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("r1"), Type: proto.String("Linear"), Params: map[string]string{"target": "10"}}.Build()},
+		MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(100),
+	}.Build())
 
 	// 2. Simulate Recommender
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: id, RecommenderName: "r1",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(10), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: id, RecommenderName: proto.String("r1"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(10), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	// 3. Calc Recommendation
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: id})
-	if resp.Recommendation == nil || resp.Recommendation.GetReplicas() != 10 {
-		t.Errorf("Initial: Want 10, Got %v", resp.Recommendation)
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: id}.Build())
+	if !resp.HasRecommendation() || resp.GetRecommendation().GetReplicas() != 10 {
+		t.Errorf("Initial: Want 10, Got %v", resp.GetRecommendation())
 	}
 
 	// 4. Update Policy: Remove Scaling
-	mustUpdatePolicy(t, client, &pb.Policy{
+	mustUpdatePolicy(t, client, pb.Policy_builder{
 		Id:          id,
-		Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-		Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
+		Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+		Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
 		Scaling:     []*pb.RecommenderDefinition{}, // Empty
-		MinReplicas: 1, MaxReplicas: 100,
-		Etag: stored.GetEtag(),
-	})
+		MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(100),
+		Etag: proto.String(stored.GetEtag()),
+	}.Build())
 
 	// 5. Verify No Recommendation
-	resp, _ = client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: id})
-	if resp.Recommendation != nil {
+	resp, _ = client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: id}.Build())
+	if resp.HasRecommendation() {
 	}
 }
 
@@ -1558,53 +1558,53 @@ func TestSlidingWindowGRPC(t *testing.T) {
 	policyName := "sliding-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
 			Metrics: []*pb.MetricDefinition{
-				{
-					Name: "m", Gauge: &pb.Gauge{Aggregation: "Avg"},
-				},
+				pb.MetricDefinition_builder{
+					Name: proto.String("m"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build(),
+				}.Build(),
 			},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// T0: Ingest 10
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	checkCM(t, cm, map[string]float64{"m": 10}, ts)
 
 	// T1: 30s later, Ingest 20. Gauge is instantaneous, so it should see 20.
 	clk.Advance(30 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 20, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(20), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	checkCM(t, cm, map[string]float64{"m": 20}, ts)
 
 	// T2: 90s later (60s after T1). Window contains [20] (10 expired after 60s).
 	clk.Advance(60 * time.Second)
 	ts = clk.Now().Unix() // 1090
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 20, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(20), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 	checkCM(t, cm, map[string]float64{"m": 20}, ts)
 }
 
@@ -1620,30 +1620,30 @@ func TestMetricGCGRPC(t *testing.T) {
 	policyName := "gc-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:          &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-			Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-			MinReplicas: 1, MaxReplicas: 10,
-		},
-	})
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
-		Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-		Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}},
-	})
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:          pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		}.Build(),
+	}.Build())
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
 
 	// T0: Ingest
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 
 	// Verify exists
 	memStore.CalculateAll()
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
-	if len(cm.Values) == 0 {
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
+	if len(cm.GetValues()) == 0 {
 		t.Fatal("Metric should exist")
 	}
 
@@ -1656,9 +1656,9 @@ func TestMetricGCGRPC(t *testing.T) {
 	// Verify gone.
 	// GetControlMetrics returns the last calculated state.
 	// If GC removed the series, CalculateAll should produce empty ControlMetrics.
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
-	if len(cm.Values) > 0 {
-		t.Errorf("Metric should be GC'd, found: %v", cm.Values)
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
+	if len(cm.GetValues()) > 0 {
+		t.Errorf("Metric should be GC'd, found: %v", cm.GetValues())
 	}
 }
 
@@ -1674,35 +1674,35 @@ func TestRecommenderArbitrationGRPC(t *testing.T) {
 	policyName := "arbitration-policy"
 	ns := "default"
 
-	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
-			Id:       &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName},
-			Workload: &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-			Metrics:  []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+			Workload: pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+			Metrics:  []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
 			Scaling: []*pb.RecommenderDefinition{
-				{Recommender: "Linear", Name: "r_low", Type: "Linear", Params: map[string]string{"target": "100"}}, // Recommends low
-				{Recommender: "Linear", Name: "r_high", Type: "Linear", Params: map[string]string{"target": "10"}}, // Recommends high (metric=200 -> 20 reps)
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("r_low"), Type: proto.String("Linear"), Params: map[string]string{"target": "100"}}.Build(), // Recommends low
+				pb.RecommenderDefinition_builder{Recommender: proto.String("Linear"), Name: proto.String("r_high"), Type: proto.String("Linear"), Params: map[string]string{"target": "10"}}.Build(), // Recommends high (metric=200 -> 20 reps)
 			},
-			MinReplicas: 1, MaxReplicas: 100,
-		},
-	})
+			MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(100),
+		}.Build(),
+	}.Build())
 
 	// Simulate Recommender States
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "r_low",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(5), IsActive: true},
-	})
-	client.UpdateRecommenderState(ctx, &pb.UpdateRecommenderStateRequest{
-		Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}, RecommenderName: "r_high",
-		Recommendation: &pb.Recommendation{Replicas: proto.Int32(20), IsActive: true},
-	})
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("r_low"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(5), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
+	client.UpdateRecommenderState(ctx, pb.UpdateRecommenderStateRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(), RecommenderName: proto.String("r_high"),
+		Recommendation: pb.Recommendation_builder{Replicas: proto.Int32(20), IsActive: proto.Bool(true)}.Build(),
+	}.Build())
 
 	memStore.CalculateAll()
-	resp, _ := client.GetRecommendation(ctx, &pb.GetRecommendationRequest{Id: &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}})
+	resp, _ := client.GetRecommendation(ctx, pb.GetRecommendationRequest_builder{Id: pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()}.Build())
 
 	// Should equal Max(5, 20) = 20
-	if resp.Recommendation.GetReplicas() != 20 {
-		t.Errorf("Arbitration failed: Want 20, Got %d", resp.Recommendation.GetReplicas())
+	if resp.GetRecommendation().GetReplicas() != 20 {
+		t.Errorf("Arbitration failed: Want 20, Got %d", resp.GetRecommendation().GetReplicas())
 	}
 }
 
@@ -1716,66 +1716,66 @@ func TestPolicyMutationGRPC(t *testing.T) {
 
 	policyName := "mutation-policy"
 	ns := "default"
-	pid := &pb.PolicyId{ClusterName: "default", Namespace: ns, Name: policyName}
+	pid := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build()
 
 	// 1. Initial: Gauge
-	stored := mustUpdatePolicy(t, client, &pb.Policy{
+	stored := mustUpdatePolicy(t, client, pb.Policy_builder{
 		Id:          pid,
-		Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-		Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Gauge: &pb.Gauge{Aggregation: "Avg"}}},
-		MinReplicas: 1, MaxReplicas: 10,
-	})
-	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{Id: pid, Workload: &pb.Workload{Pods: []*pb.PodState{{Name: "p1", IsReady: true}}}})
+		Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+		Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build()},
+		MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+	}.Build())
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{Id: pid, Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build()}}.Build()}.Build())
 
 	ts := clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 10, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(10), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
 
-	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: pid})
-	if cm.Values["m"] != 10 {
-		t.Errorf("Initial Gauge mismatch: %v", cm.Values["m"])
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pid}.Build())
+	if cm.GetValues()["m"] != 10 {
+		t.Errorf("Initial Gauge mismatch: %v", cm.GetValues()["m"])
 	}
 
 	// 2. Update to Counter (Rate)
-	mustUpdatePolicy(t, client, &pb.Policy{
+	mustUpdatePolicy(t, client, pb.Policy_builder{
 		Id:          pid,
-		Workload:    &pb.WorkloadRef{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", Namespace: ns},
-		Metrics:     []*pb.MetricDefinition{{Name: "m", Provider: "kubelet", Rate: &pb.Rate{Window: durationpb.New(time.Minute)}}}, // Changed to Rate
-		MinReplicas: 1, MaxReplicas: 10,
-		Etag: stored.GetEtag(),
-	})
+		Workload:    pb.WorkloadRef_builder{Group: proto.String("apps"), Version: proto.String("v1"), Kind: proto.String("Deployment"), Name: proto.String("app"), Namespace: proto.String(ns)}.Build(),
+		Metrics:     []*pb.MetricDefinition{pb.MetricDefinition_builder{Name: proto.String("m"), Provider: proto.String("kubelet"), Rate: pb.Rate_builder{Window: durationpb.New(time.Minute)}.Build()}.Build()}, // Changed to Rate
+		MinReplicas: proto.Int32(1), MaxReplicas: proto.Int32(10),
+		Etag: proto.String(stored.GetEtag()),
+	}.Build())
 
 	// 3. The state built from the previous definition is dropped: the gauge
 	// sample does not seed the rate, which needs two counter samples.
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 20, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(20), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
 
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: pid})
-	if _, ok := cm.Values["m"]; ok {
-		t.Errorf("Mutation Counter: want no value from a single sample, got %v", cm.Values["m"])
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pid}.Build())
+	if _, ok := cm.GetValues()["m"]; ok {
+		t.Errorf("Mutation Counter: want no value from a single sample, got %v", cm.GetValues()["m"])
 	}
 
 	// 4. T2 (10s later): Value 30. Diff=10. Rate=1.
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
-	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default", Timestamp: timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{{Namespace: ns, Name: policyName, Batches: []*pb.MetricBatch{{PodName: "p1", Samples: []*pb.MetricSample{{Name: "m", Value: 30, Timestamp: timestamppb.New(time.Unix(ts, 0))}}}}}},
-	})
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{Namespace: proto.String(ns), Name: proto.String(policyName), Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("p1"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(30), Timestamp: timestamppb.New(time.Unix(ts, 0))}.Build()}}.Build()}}.Build()},
+	}.Build())
 	memStore.CalculateAll()
 
-	cm, _ = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: pid})
+	cm, _ = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: pid}.Build())
 	// Rate = (30-20)/10 = 1.0
-	if cm.Values["m"] != 1.0 {
-		t.Errorf("Mutation Counter mismatch: Want 1.0, Got %v", cm.Values["m"])
+	if cm.GetValues()["m"] != 1.0 {
+		t.Errorf("Mutation Counter mismatch: Want 1.0, Got %v", cm.GetValues()["m"])
 	}
 }
 
@@ -1785,8 +1785,8 @@ func checkCM(t *testing.T, got *pb.ControlMetrics, wantVals map[string]float64, 
 		t.Errorf("Timestamp mismatch: want %d, got %d", wantTS, got.GetTimestamp().AsTime().Unix())
 	}
 	for k, v := range wantVals {
-		if got.Values[k] != v {
-			t.Errorf("Value mismatch for %s: want %f, got %f", k, v, got.Values[k])
+		if got.GetValues()[k] != v {
+			t.Errorf("Value mismatch for %s: want %f, got %f", k, v, got.GetValues()[k])
 		}
 	}
 }
@@ -1807,56 +1807,56 @@ func TestRecommenderOwnedMetricsGRPC(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
-	_, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
-		Policy: &pb.Policy{
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
+	_, err := client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
-				{Name: "cpu", Gauge: &pb.Gauge{Aggregation: "Avg"}},
+				pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Avg")}.Build()}.Build(),
 			},
-			Scaling: []*pb.RecommenderDefinition{{Name: "vpa", Recommender: "vpa"}},
+			Scaling: []*pb.RecommenderDefinition{pb.RecommenderDefinition_builder{Name: proto.String("vpa"), Recommender: proto.String("vpa")}.Build()},
 			RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-				"vpa": {Definitions: []*pb.MetricDefinition{
-					{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{Aggregation: "Max"}},
-				}},
+				"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+					pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Max")}.Build()}.Build(),
+				}}.Build(),
 			},
-		},
-	})
+		}.Build(),
+	}.Build())
 	if err != nil {
 		t.Fatalf("UpdatePolicy failed: %v", err)
 	}
 
-	_, err = client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
+	_, err = client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
 		Id: id,
-		Workload: &pb.Workload{Pods: []*pb.PodState{
-			{Name: "p1", IsReady: true},
-			{Name: "p2", IsReady: true},
-		}},
-	})
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{
+			pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(),
+			pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build(),
+		}}.Build(),
+	}.Build())
 	if err != nil {
 		t.Fatalf("UpdateWorkload failed: %v", err)
 	}
 
-	_, err = client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
-		ClusterName: "default",
+	_, err = client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(start.Unix(), 0)),
-		Policies: []*pb.PolicyBatch{{
-			Namespace: "prod", Name: "web",
-			Batches: []*pb.MetricBatch{{
-				PodName: "p1",
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String("prod"), Name: proto.String("web"),
+			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName: proto.String("p1"),
 				Samples: []*pb.MetricSample{
-					{Name: "cpu", Value: 2, Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))},
-					{Name: "cpu", RecommenderName: "vpa", Value: 20, Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))},
+					pb.MetricSample_builder{Name: proto.String("cpu"), Value: proto.Float64(2), Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa"), Value: proto.Float64(20), Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))}.Build(),
 				},
-			}, {
-				PodName: "p2",
+			}.Build(), pb.MetricBatch_builder{
+				PodName: proto.String("p2"),
 				Samples: []*pb.MetricSample{
-					{Name: "cpu", Value: 4, Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))},
-					{Name: "cpu", RecommenderName: "vpa", Value: 40, Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))},
+					pb.MetricSample_builder{Name: proto.String("cpu"), Value: proto.Float64(4), Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))}.Build(),
+					pb.MetricSample_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa"), Value: proto.Float64(40), Timestamp: timestamppb.New(time.Unix(start.Unix(), 0))}.Build(),
 				},
-			}},
-		}},
-	})
+			}.Build()},
+		}.Build()},
+	}.Build())
 	if err != nil {
 		t.Fatalf("IngestMetrics failed: %v", err)
 	}
@@ -1864,17 +1864,17 @@ func TestRecommenderOwnedMetricsGRPC(t *testing.T) {
 	memStore.CalculateAll()
 
 	// Policy-wide scope: Avg(2, 4).
-	cm, err := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: id})
+	cm, err := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: id}.Build())
 	if err != nil {
 		t.Fatalf("GetControlMetrics failed: %v", err)
 	}
 	checkCM(t, cm, map[string]float64{"cpu": 3}, start.Unix())
 
 	// Recommender scope: only its own metric, with its own aggregation Max(20, 40).
-	cm, err = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{
+	cm, err = client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{
 		Id:              id,
-		RecommenderName: "vpa",
-	})
+		RecommenderName: proto.String("vpa"),
+	}.Build())
 	if err != nil {
 		t.Fatalf("GetControlMetrics(vpa) failed: %v", err)
 	}
@@ -1890,7 +1890,7 @@ func TestRecommenderMetricsValidationGRPC(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 
 	tests := []struct {
 		name     string
@@ -1899,67 +1899,67 @@ func TestRecommenderMetricsValidationGRPC(t *testing.T) {
 	}{
 		{
 			name: "Owned metric with a mismatched owner",
-			policy: &pb.Policy{
+			policy: pb.Policy_builder{
 				Id: id,
 				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", RecommenderName: "hpa", Gauge: &pb.Gauge{}},
-					}},
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("hpa"), Gauge: &pb.Gauge{}}.Build(),
+					}}.Build(),
 				},
-			},
+			}.Build(),
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "Owned metric without an owner",
-			policy: &pb.Policy{
+			policy: pb.Policy_builder{
 				Id: id,
 				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", Gauge: &pb.Gauge{}},
-					}},
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: &pb.Gauge{}}.Build(),
+					}}.Build(),
 				},
-			},
+			}.Build(),
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "Owned metric without an intent",
-			policy: &pb.Policy{
+			policy: pb.Policy_builder{
 				Id: id,
 				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", RecommenderName: "vpa"},
-					}},
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa")}.Build(),
+					}}.Build(),
 				},
-			},
+			}.Build(),
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "Policy-wide metric claiming an owner",
-			policy: &pb.Policy{
+			policy: pb.Policy_builder{
 				Id: id,
 				Metrics: []*pb.MetricDefinition{
-					{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{}},
+					pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa"), Gauge: &pb.Gauge{}}.Build(),
 				},
-			},
+			}.Build(),
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "Valid owned metric",
-			policy: &pb.Policy{
+			policy: pb.Policy_builder{
 				Id: id,
 				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
-					"vpa": {Definitions: []*pb.MetricDefinition{
-						{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{}},
-					}},
+					"vpa": pb.MetricDefinitionList_builder{Definitions: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), RecommenderName: proto.String("vpa"), Gauge: &pb.Gauge{}}.Build(),
+					}}.Build(),
 				},
-			},
+			}.Build(),
 			wantCode: codes.OK,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := client.CreatePolicy(ctx, &pb.CreatePolicyRequest{Policy: tc.policy})
+			_, err := client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{Policy: tc.policy}.Build())
 			st, _ := status.FromError(err)
 			if st.Code() != tc.wantCode {
 				t.Errorf("Want code %v, got %v (err: %v)", tc.wantCode, st.Code(), err)
@@ -1974,9 +1974,9 @@ func TestGetWorkloadGRPC(t *testing.T) {
 	_, client, cleanup := setupGRPCServer(t, &clock.FakeClock{CurrentTime: time.Unix(1000, 0)})
 	defer cleanup()
 	ctx := context.Background()
-	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("prod"), Name: proto.String("web")}.Build()
 
-	_, err := client.GetWorkload(ctx, &pb.GetWorkloadRequest{Id: id})
+	_, err := client.GetWorkload(ctx, pb.GetWorkloadRequest_builder{Id: id}.Build())
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("GetWorkload(unknown policy) code = %v, want NotFound", status.Code(err))
 	}
@@ -1985,8 +1985,8 @@ func TestGetWorkloadGRPC(t *testing.T) {
 		t.Errorf("GetWorkload(no id) code = %v, want InvalidArgument", status.Code(err))
 	}
 
-	mustUpdatePolicy(t, client, &pb.Policy{Id: id, MaxReplicas: 10})
-	got, err := client.GetWorkload(ctx, &pb.GetWorkloadRequest{Id: id})
+	mustUpdatePolicy(t, client, pb.Policy_builder{Id: id, MaxReplicas: proto.Int32(10)}.Build())
+	got, err := client.GetWorkload(ctx, pb.GetWorkloadRequest_builder{Id: id}.Build())
 	if err != nil {
 		t.Fatalf("GetWorkload() error = %v", err)
 	}
@@ -1995,19 +1995,19 @@ func TestGetWorkloadGRPC(t *testing.T) {
 	}
 
 	pods := []*pb.PodState{
-		{Name: "web-b", IsReady: true, Containers: []*pb.ContainerState{{Name: "app", Requests: map[string]string{"cpu": "200m"}}}},
-		{Name: "web-a", IsReady: false, Containers: []*pb.ContainerState{{Name: "app", Requests: map[string]string{"cpu": "100m", "memory": "64Mi"}}}},
+		pb.PodState_builder{Name: proto.String("web-b"), IsReady: proto.Bool(true), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: map[string]string{"cpu": "200m"}}.Build()}}.Build(),
+		pb.PodState_builder{Name: proto.String("web-a"), IsReady: proto.Bool(false), Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("app"), Requests: map[string]string{"cpu": "100m", "memory": "64Mi"}}.Build()}}.Build(),
 	}
-	if _, err := client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{Id: id, Workload: &pb.Workload{Pods: pods}}); err != nil {
+	if _, err := client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{Id: id, Workload: pb.Workload_builder{Pods: pods}.Build()}.Build()); err != nil {
 		t.Fatalf("UpdateWorkload() error = %v", err)
 	}
-	got, err = client.GetWorkload(ctx, &pb.GetWorkloadRequest{Id: id})
+	got, err = client.GetWorkload(ctx, pb.GetWorkloadRequest_builder{Id: id}.Build())
 	if err != nil {
 		t.Fatalf("GetWorkload() error = %v", err)
 	}
 	// Pods are returned sorted by name.
-	want := &pb.Workload{Pods: []*pb.PodState{pods[1], pods[0]}}
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+	want := pb.Workload_builder{Pods: []*pb.PodState{pods[1], pods[0]}}.Build()
+	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("GetWorkload() mismatch (-want +got):\n%s", diff)
 	}
 }

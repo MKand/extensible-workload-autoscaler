@@ -5,12 +5,13 @@ import (
 	"maps"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/podutil"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/server/store/aggregation"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/server/store/model"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // MetricSeries holds the state of a single metric: every series reported for
@@ -30,9 +31,9 @@ type MetricSeries struct {
 func newMetricSeries(def *pb.MetricDefinition, podName, containerName string, sample *pb.MetricSample) *MetricSeries {
 	return &MetricSeries{
 		Series:       make(map[model.SeriesID]*model.Series),
-		Aggregation:  aggregation.CreateSeriesAggregation(def, sample.ResourceName, podName, containerName),
+		Aggregation:  aggregation.CreateSeriesAggregation(def, sample.GetResourceName(), podName, containerName),
 		Definition:   def,
-		ResourceName: sample.ResourceName,
+		ResourceName: sample.GetResourceName(),
 	}
 }
 
@@ -65,8 +66,8 @@ func NewMetricStore() *MetricStore {
 // IngestMetrics ingests a slice of metric batches for the given policy.
 func (ms *MetricStore) IngestMetrics(policy *pb.Policy, batches []*pb.MetricBatch, ingestTime time.Time) error {
 	for _, batch := range batches {
-		for _, m := range batch.Samples {
-			if err := ms.ingestSample(policy, batch.PodName, batch.ContainerName, m, ingestTime); err != nil {
+		for _, m := range batch.GetSamples() {
+			if err := ms.ingestSample(policy, batch.GetPodName(), batch.GetContainerName(), m, ingestTime); err != nil {
 				return err
 			}
 		}
@@ -81,12 +82,12 @@ func findMetricDefinition(policy *pb.Policy, owner, name string) *pb.MetricDefin
 	if policy == nil {
 		return nil
 	}
-	defs := policy.Metrics
+	defs := policy.GetMetrics()
 	if owner != "" {
-		defs = policy.RecommenderMetrics[owner].GetDefinitions()
+		defs = policy.GetRecommenderMetrics()[owner].GetDefinitions()
 	}
 	for _, d := range defs {
-		if d.Name == name {
+		if d.GetName() == name {
 			return d
 		}
 	}
@@ -95,16 +96,16 @@ func findMetricDefinition(policy *pb.Policy, owner, name string) *pb.MetricDefin
 
 func (ms *MetricStore) ingestSample(policy *pb.Policy, podName, containerName string, sample *pb.MetricSample, ingestTime time.Time) error {
 	owner := sample.GetRecommenderName()
-	def := findMetricDefinition(policy, owner, sample.Name)
+	def := findMetricDefinition(policy, owner, sample.GetName())
 	if def == nil {
 		if owner != "" {
-			return fmt.Errorf("metric %s not defined in policy for recommender %s", sample.Name, owner)
+			return fmt.Errorf("metric %s not defined in policy for recommender %s", sample.GetName(), owner)
 		}
-		return fmt.Errorf("metric %s not defined in policy", sample.Name)
+		return fmt.Errorf("metric %s not defined in policy", sample.GetName())
 	}
 
 	// Filter early
-	if !model.MatchFilter(sample.Labels, def.Filter) {
+	if !model.MatchFilter(sample.GetLabels(), def.GetFilter()) {
 		return nil
 	}
 
@@ -114,10 +115,10 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, podName, containerName st
 		metricSeries = newMetricSeries(def, podName, containerName, sample)
 		ms.Series[id] = metricSeries
 	}
-	sid := model.NewSeriesID(podName, containerName, sample.Labels)
+	sid := model.NewSeriesID(podName, containerName, sample.GetLabels())
 	series, ok := metricSeries.getSeries(sid)
 	if !ok {
-		series = model.NewSeries(podName, containerName, sample.ResourceName, sample.Labels, metricSeries.Aggregation.NewTimeWindow(def))
+		series = model.NewSeries(podName, containerName, sample.GetResourceName(), sample.GetLabels(), metricSeries.Aggregation.NewTimeWindow(def))
 		metricSeries.setSeries(sid, series)
 	}
 	ms.seriesIngestSample(series, sample, ingestTime)
@@ -126,13 +127,13 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, podName, containerName st
 
 func (ms *MetricStore) seriesIngestSample(ser *model.Series, m *pb.MetricSample, ingestTime time.Time) {
 	ts := ingestTime
-	if m.Timestamp != nil {
-		ts = m.Timestamp.AsTime()
+	if m.HasTimestamp() {
+		ts = m.GetTimestamp().AsTime()
 	}
 	if ts.Before(ser.LastRaw.Timestamp) {
 		return // Drop out of order samples
 	}
-	sample := model.Sample{Timestamp: ts, Value: m.Value, Distribution: model.NewDistributionFromHistogram(m.GetHistogram())}
+	sample := model.Sample{Timestamp: ts, Value: m.GetValue(), Distribution: model.NewDistributionFromHistogram(m.GetHistogram())}
 	ser.AddSample(sample, ingestTime)
 }
 
@@ -174,10 +175,10 @@ func definedMetrics(policy *pb.Policy) map[metricID]*pb.MetricDefinition {
 	if policy == nil {
 		return defs
 	}
-	for _, m := range policy.Metrics {
+	for _, m := range policy.GetMetrics() {
 		defs[newMetricID(m)] = m
 	}
-	for _, owned := range policy.RecommenderMetrics {
+	for _, owned := range policy.GetRecommenderMetrics() {
 		for _, m := range owned.GetDefinitions() {
 			defs[newMetricID(m)] = m
 		}
@@ -193,29 +194,29 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 
 	eligiblePods := filterEligiblePods(workload)
 	readyReplicas := len(eligiblePods)
-	cm := &pb.ControlMetrics{
-		ReadyReplicas:       int32(max(1, readyReplicas)),
+	cm := pb.ControlMetrics_builder{
+		ReadyReplicas:       proto.Int32(int32(max(1, readyReplicas))),
 		Timestamp:           timestamppb.New(now),
 		Values:              make(map[string]float64),
 		PodMetrics:          make(map[string]*pb.MetricValues),
 		PodContainerMetrics: make(map[string]*pb.ContainerMetrics),
-		ContainerMetrics: &pb.ContainerMetrics{
+		ContainerMetrics: pb.ContainerMetrics_builder{
 			ContainerMetrics: make(map[string]*pb.MetricValues),
-		},
-	}
+		}.Build(),
+	}.Build()
 
 	for _, def := range defs {
 		metricSeries := ms.Series[newMetricID(def)]
 		if metricSeries.isEmpty() {
 			continue
 		}
-		aggregation.AddControlMetric(cm, def.Name, metricSeries.Aggregation.Reduce(maps.Values(metricSeries.Series), workload))
+		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(maps.Values(metricSeries.Series), workload))
 	}
 
 	// Skip empty ContainerMetrics as, unlike empty maps, an empty proto message
 	// is serialized.
-	if len(cm.ContainerMetrics.ContainerMetrics) == 0 {
-		cm.ContainerMetrics = nil
+	if len(cm.GetContainerMetrics().GetContainerMetrics()) == 0 {
+		cm.ClearContainerMetrics()
 	}
 
 	return cm

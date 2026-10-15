@@ -10,6 +10,9 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+
+	corelisters "k8s.io/client-go/listers/core/v1"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/recommenders/cron"
@@ -17,7 +20,6 @@ import (
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/recommenders/perpodvertical"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/recommenders/vpa"
 	listers "github.com/gke-labs/extensible-workload-autoscaler/pkg/client/listers/xas/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 )
 
 type Recommender interface {
@@ -97,13 +99,13 @@ func (e *Engine) processPolicy(policy *pb.Policy) {
 	// policy, so the providers collect them before we read them back.
 	policy, configErrs := e.syncRecommenderMetrics(policy)
 
-	metrics, err := e.fetchControlMetrics(policy.Id.Namespace, policy.Id.Name, "")
+	metrics, err := e.fetchControlMetrics(policy.GetId().GetNamespace(), policy.GetId().GetName(), "")
 	if err != nil {
 		return
 	}
-	workload, err := e.fetchWorkload(policy.Id.Namespace, policy.Id.Name)
+	workload, err := e.fetchWorkload(policy.GetId().GetNamespace(), policy.GetId().GetName())
 	if err != nil {
-		slog.Error("Failed to fetch the workload", "policy", policy.Id.Name, "error", err)
+		slog.Error("Failed to fetch the workload", "policy", policy.GetId().GetName(), "error", err)
 		return
 	}
 
@@ -111,30 +113,30 @@ func (e *Engine) processPolicy(policy *pb.Policy) {
 	// policy-wide metrics, the metrics owned by the recommender, and the
 	// workload.
 	var recommendations []namedRecommendation
-	for _, def := range slices.Concat(policy.Activation, policy.Scaling) {
-		if err, ok := configErrs[def.Name]; ok {
-			recommendations = append(recommendations, namedRecommendation{name: def.Name, recommendation: &pb.Recommendation{
-				IsActive: false,
-				Message:  fmt.Sprintf("Invalid configuration: %v", err),
-			}})
+	for _, def := range slices.Concat(policy.GetActivation(), policy.GetScaling()) {
+		if err, ok := configErrs[def.GetName()]; ok {
+			recommendations = append(recommendations, namedRecommendation{name: def.GetName(), recommendation: pb.Recommendation_builder{
+				IsActive: proto.Bool(false),
+				Message:  proto.String(fmt.Sprintf("Invalid configuration: %v", err)),
+			}.Build()})
 			continue
 		}
-		ownedMetrics, err := e.fetchControlMetrics(policy.Id.Namespace, policy.Id.Name, def.Name)
+		ownedMetrics, err := e.fetchControlMetrics(policy.GetId().GetNamespace(), policy.GetId().GetName(), def.GetName())
 		if err != nil {
 			return
 		}
 
-		rec, err := e.recommenderFor(def.Recommender)
+		rec, err := e.recommenderFor(def.GetRecommender())
 		if err != nil {
-			slog.Warn("RecommenderClass not found for policy", "recommender", def.Recommender, "policy", policy.Id.Name, "error", err)
+			slog.Warn("RecommenderClass not found for policy", "recommender", def.GetRecommender(), "policy", policy.GetId().GetName(), "error", err)
 			return
 		}
 		if v := rec.Recommend(def, metrics, ownedMetrics, workload); v != nil {
-			recommendations = append(recommendations, namedRecommendation{name: def.Name, recommendation: v})
+			recommendations = append(recommendations, namedRecommendation{name: def.GetName(), recommendation: v})
 		}
 	}
 
-	slog.Debug("Recommendations generated", "policy", policy.Id.Name, "count", len(recommendations))
+	slog.Debug("Recommendations generated", "policy", policy.GetId().GetName(), "count", len(recommendations))
 	if len(recommendations) > 0 {
 		e.pushRecommendations(policy, recommendations)
 	}
@@ -144,13 +146,13 @@ func (e *Engine) fetchPolicies() ([]*pb.Policy, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := e.client.ListPolicies(ctx, &pb.ListPoliciesRequest{
-		ClusterName: e.clusterName,
-	})
+	resp, err := e.client.ListPolicies(ctx, pb.ListPoliciesRequest_builder{
+		ClusterName: proto.String(e.clusterName),
+	}.Build())
 	if err != nil {
 		return nil, err
 	}
-	return resp.Policies, nil
+	return resp.GetPolicies(), nil
 }
 
 // fetchControlMetrics reads the control metrics of a policy. An empty recommenderName
@@ -160,10 +162,10 @@ func (e *Engine) fetchControlMetrics(ns, name, recommenderName string) (*pb.Cont
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return e.client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{
-		Id:              &pb.PolicyId{ClusterName: e.clusterName, Namespace: ns, Name: name},
-		RecommenderName: recommenderName,
-	})
+	return e.client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{
+		Id:              pb.PolicyId_builder{ClusterName: proto.String(e.clusterName), Namespace: proto.String(ns), Name: proto.String(name)}.Build(),
+		RecommenderName: proto.String(recommenderName),
+	}.Build())
 }
 
 // fetchWorkload reads the workload of a policy: its pods and their current
@@ -172,9 +174,9 @@ func (e *Engine) fetchWorkload(ns, name string) (*pb.Workload, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return e.client.GetWorkload(ctx, &pb.GetWorkloadRequest{
-		Id: &pb.PolicyId{ClusterName: e.clusterName, Namespace: ns, Name: name},
-	})
+	return e.client.GetWorkload(ctx, pb.GetWorkloadRequest_builder{
+		Id: pb.PolicyId_builder{ClusterName: proto.String(e.clusterName), Namespace: proto.String(ns), Name: proto.String(name)}.Build(),
+	}.Build())
 }
 
 type namedRecommendation struct {
@@ -187,17 +189,17 @@ func (e *Engine) pushRecommendations(policy *pb.Policy, recommendations []namedR
 	defer cancel()
 
 	for _, r := range recommendations {
-		req := &pb.UpdateRecommenderStateRequest{
-			Id:              &pb.PolicyId{ClusterName: e.clusterName, Namespace: policy.Id.Namespace, Name: policy.Id.Name},
-			RecommenderName: r.name,
+		req := pb.UpdateRecommenderStateRequest_builder{
+			Id:              pb.PolicyId_builder{ClusterName: proto.String(e.clusterName), Namespace: proto.String(policy.GetId().GetNamespace()), Name: proto.String(policy.GetId().GetName())}.Build(),
+			RecommenderName: proto.String(r.name),
 			Recommendation:  r.recommendation,
-		}
-		if r.recommendation != nil && r.recommendation.Replicas != nil {
-			slog.Debug("Pushing workload replicas recommendation", "policy", policy.Id.Name, "recommender", r.name, "desired", *r.recommendation.Replicas)
+		}.Build()
+		if r.recommendation != nil && r.recommendation.HasReplicas() {
+			slog.Debug("Pushing workload replicas recommendation", "policy", policy.GetId().GetName(), "recommender", r.name, "desired", r.recommendation.GetReplicas())
 		}
 		_, err := e.client.UpdateRecommenderState(ctx, req)
 		if err != nil {
-			slog.Error("Failed to push recommendation", "policy", policy.Id.Name, "recommender", r.name, "error", err)
+			slog.Error("Failed to push recommendation", "policy", policy.GetId().GetName(), "recommender", r.name, "error", err)
 		}
 	}
 }

@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"strings"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/clock"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/server/store"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Server struct {
@@ -30,7 +32,7 @@ func (s *Server) CreatePolicy(ctx context.Context, req *pb.CreatePolicyRequest) 
 	if err := validateCreatePolicyRequest(req); err != nil {
 		return nil, err
 	}
-	created, err := s.store.CreatePolicy(req.Policy.Id.ClusterName, req.Policy)
+	created, err := s.store.CreatePolicy(req.GetPolicy().GetId().GetClusterName(), req.GetPolicy())
 	if errors.Is(err, store.ErrPolicyAlreadyExists) {
 		return nil, status.Error(codes.AlreadyExists, err.Error())
 	}
@@ -48,7 +50,7 @@ func (s *Server) UpdatePolicy(ctx context.Context, req *pb.UpdatePolicyRequest) 
 	if err := validateUpdatePolicyRequest(req); err != nil {
 		return nil, err
 	}
-	updated, err := s.store.UpdatePolicy(req.Policy.Id.ClusterName, req.AllowMissing, req.Policy)
+	updated, err := s.store.UpdatePolicy(req.GetPolicy().GetId().GetClusterName(), req.GetAllowMissing(), req.GetPolicy())
 	if errors.Is(err, store.ErrStaleEtag) {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
@@ -67,7 +69,7 @@ func (s *Server) DeletePolicy(ctx context.Context, req *pb.DeletePolicyRequest) 
 	if err := validateDeletePolicyRequest(req); err != nil {
 		return nil, err
 	}
-	if err := s.store.DeletePolicy(req.Id); err != nil {
+	if err := s.store.DeletePolicy(req.GetId()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -77,7 +79,7 @@ func (s *Server) GetPolicy(ctx context.Context, req *pb.GetPolicyRequest) (*pb.P
 	if err := validateGetPolicyRequest(req); err != nil {
 		return nil, err
 	}
-	policy := s.store.GetPolicy(req.Id)
+	policy := s.store.GetPolicy(req.GetId())
 	if policy == nil {
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}
@@ -88,8 +90,8 @@ func (s *Server) ListPolicies(ctx context.Context, req *pb.ListPoliciesRequest) 
 	if err := validateListPoliciesRequest(req); err != nil {
 		return nil, err
 	}
-	policies := s.store.ListPolicies(req.ClusterName)
-	return &pb.ListPoliciesResponse{Policies: policies}, nil
+	policies := s.store.ListPolicies(req.GetClusterName())
+	return pb.ListPoliciesResponse_builder{Policies: policies}.Build(), nil
 }
 
 func (s *Server) UpdateWorkload(ctx context.Context, req *pb.UpdateWorkloadRequest) (*pb.Workload, error) {
@@ -100,14 +102,14 @@ func (s *Server) UpdateWorkload(ctx context.Context, req *pb.UpdateWorkloadReque
 	if err := s.store.UpdateWorkload(req); err != nil {
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}
-	return req.Workload, nil
+	return req.GetWorkload(), nil
 }
 
 func (s *Server) GetControlMetrics(ctx context.Context, req *pb.GetControlMetricsRequest) (*pb.ControlMetrics, error) {
 	if err := validateGetControlMetricsRequest(req); err != nil {
 		return nil, err
 	}
-	metrics, ok := s.store.GetControlMetrics(req.Id, req.GetRecommenderName())
+	metrics, ok := s.store.GetControlMetrics(req.GetId(), req.GetRecommenderName())
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}
@@ -118,7 +120,7 @@ func (s *Server) GetWorkload(ctx context.Context, req *pb.GetWorkloadRequest) (*
 	if err := validateGetWorkloadRequest(req); err != nil {
 		return nil, err
 	}
-	workload, ok := s.store.GetWorkload(req.Id)
+	workload, ok := s.store.GetWorkload(req.GetId())
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}
@@ -129,10 +131,10 @@ func (s *Server) UpdateRecommenderState(ctx context.Context, req *pb.UpdateRecom
 	if err := validateUpdateRecommenderStateRequest(req); err != nil {
 		return nil, err
 	}
-	if req.Recommendation != nil {
-		slog.Debug("UpdateRecommenderState", "cluster", req.Id.ClusterName, "policy", req.Id.Name, "recommender", req.RecommenderName)
+	if req.HasRecommendation() {
+		slog.Debug("UpdateRecommenderState", "cluster", req.GetId().GetClusterName(), "policy", req.GetId().GetName(), "recommender", req.GetRecommenderName())
 	} else {
-		slog.Debug("UpdateRecommenderState: Clearing", "cluster", req.Id.ClusterName, "policy", req.Id.Name, "recommender", req.RecommenderName)
+		slog.Debug("UpdateRecommenderState: Clearing", "cluster", req.GetId().GetClusterName(), "policy", req.GetId().GetName(), "recommender", req.GetRecommenderName())
 	}
 	if err := s.store.UpdateRecommenderState(req); err != nil {
 		if err.Error() == "policy not found" {
@@ -141,9 +143,9 @@ func (s *Server) UpdateRecommenderState(ctx context.Context, req *pb.UpdateRecom
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	res := &pb.RecommenderState{
-		Name: req.RecommenderName,
-	}
+	res := pb.RecommenderState_builder{
+		Name: proto.String(req.GetRecommenderName()),
+	}.Build()
 	// Note: We don't necessarily return the full enriched status here unless we fetch it from store
 	// For now, let's keep it simple or fetch it if needed by clients.
 	// Most clients (recommenders) don't use the response.
@@ -155,12 +157,12 @@ func (s *Server) GetRecommendation(ctx context.Context, req *pb.GetRecommendatio
 	if err := validateGetRecommendationRequest(req); err != nil {
 		return nil, err
 	}
-	rec, ok := s.store.GetRecommendation(req.Id)
+	rec, ok := s.store.GetRecommendation(req.GetId())
 	if !ok {
-		slog.Debug("GetRecommendation: Not Found", "cluster", req.Id.ClusterName, "policy", req.Id.Name)
+		slog.Debug("GetRecommendation: Not Found", "cluster", req.GetId().GetClusterName(), "policy", req.GetId().GetName())
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}
-	slog.Debug("GetRecommendation: Serving", "cluster", req.Id.ClusterName, "policy", req.Id.Name)
+	slog.Debug("GetRecommendation: Serving", "cluster", req.GetId().GetClusterName(), "policy", req.GetId().GetName())
 	return rec, nil
 }
 
@@ -168,12 +170,12 @@ func (s *Server) IngestMetrics(ctx context.Context, req *pb.IngestMetricsRequest
 	if err := validateIngestMetricsRequest(req); err != nil {
 		return nil, err
 	}
-	slog.Debug("IngestMetrics", "cluster", req.ClusterName, "policies", len(req.Policies))
+	slog.Debug("IngestMetrics", "cluster", req.GetClusterName(), "policies", len(req.GetPolicies()))
 	if err := s.store.AddBatch(req); err != nil {
 		if strings.Contains(err.Error(), "policy not found") {
 			return nil, status.Errorf(codes.NotFound, "%v", err)
 		}
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	return &pb.IngestMetricsResponse{Success: true}, nil
+	return pb.IngestMetricsResponse_builder{Success: proto.Bool(true)}.Build(), nil
 }

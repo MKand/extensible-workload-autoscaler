@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
 )
 
 // Resource levels supported by the recommender, set with the "resourceLevel"
@@ -54,25 +56,25 @@ type config struct {
 func (r *PerPodVerticalRecommender) Recommend(def *pb.RecommenderDefinition, state, _ *pb.ControlMetrics, _ *pb.Workload) *pb.Recommendation {
 	cfg, err := parseConfig(def)
 	if err != nil {
-		return &pb.Recommendation{
-			Message: err.Error(),
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String(err.Error()),
+		}.Build()
 	}
 
-	if state == nil || len(state.PodContainerMetrics) == 0 {
+	if state == nil || len(state.GetPodContainerMetrics()) == 0 {
 		if state != nil && hasPodLevelMetric(state, cfg.metric) {
-			return &pb.Recommendation{
-				Message: fmt.Sprintf("metric %q has no per-container data: define it with scope \"PodContainer\"", cfg.metric),
-			}
+			return pb.Recommendation_builder{
+				Message: proto.String(fmt.Sprintf("metric %q has no per-container data: define it with scope \"PodContainer\"", cfg.metric)),
+			}.Build()
 		}
-		return &pb.Recommendation{
-			Message: "no pod container metrics available",
-		}
+		return pb.Recommendation_builder{
+			Message: proto.String("no pod container metrics available"),
+		}.Build()
 	}
 
 	var podRecs []*pb.PodContainerResource
 
-	for podName, pcm := range state.PodContainerMetrics {
+	for podName, pcm := range state.GetPodContainerMetrics() {
 		val, ok := podUsage(pcm, cfg)
 		if !ok {
 			continue
@@ -82,21 +84,21 @@ func (r *PerPodVerticalRecommender) Recommend(def *pb.RecommenderDefinition, sta
 		desiredVal := val * (cfg.safetyMargin / cfg.target)
 		requests, limits := cfg.resources(desiredVal)
 
-		podRecs = append(podRecs, &pb.PodContainerResource{
-			PodName: podName,
-			ContainerResources: &pb.ContainerResource{
+		podRecs = append(podRecs, pb.PodContainerResource_builder{
+			PodName: proto.String(podName),
+			ContainerResources: pb.ContainerResource_builder{
 				// Empty for LevelPod: targets the pod-level resources.
-				ContainerName: cfg.container,
+				ContainerName: proto.String(cfg.container),
 				Requests:      requests,
 				Limits:        limits,
-			},
-		})
+			}.Build(),
+		}.Build())
 	}
 
-	return &pb.Recommendation{
-		IsActive:              true,
+	return pb.Recommendation_builder{
+		IsActive:              proto.Bool(true),
 		PodContainerResources: podRecs,
-	}
+	}.Build()
 }
 
 // podUsage returns the usage the pod is sized on: the configured container's
@@ -109,7 +111,7 @@ func podUsage(pcm *pb.ContainerMetrics, cfg *config) (float64, bool) {
 		if !ok || cm == nil {
 			return 0, false
 		}
-		v, ok := cm.Values[cfg.metric]
+		v, ok := cm.GetValues()[cfg.metric]
 		return v, ok
 	}
 
@@ -118,7 +120,7 @@ func podUsage(pcm *pb.ContainerMetrics, cfg *config) (float64, bool) {
 		if cm == nil {
 			continue
 		}
-		if v, ok := cm.Values[cfg.metric]; ok {
+		if v, ok := cm.GetValues()[cfg.metric]; ok {
 			sum += v
 			found = true
 		}
@@ -170,8 +172,8 @@ func (cfg *config) resources(desiredVal float64) (requests, limits map[string]st
 // hasPodLevelMetric reports whether the metric is only available as a pod-level
 // value, i.e. it was defined with scope "Pod" rather than "PodContainer".
 func hasPodLevelMetric(state *pb.ControlMetrics, metric string) bool {
-	for _, pm := range state.PodMetrics {
-		if _, ok := pm.Values[metric]; ok {
+	for _, pm := range state.GetPodMetrics() {
+		if _, ok := pm.GetValues()[metric]; ok {
 			return true
 		}
 	}
@@ -188,12 +190,12 @@ func getParam(params map[string]string, keys ...string) string {
 }
 
 func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
-	metric := getParam(def.Params, "metric")
+	metric := getParam(def.GetParams(), "metric")
 	if metric == "" {
 		return nil, fmt.Errorf("missing metric param")
 	}
 
-	targetStr := getParam(def.Params, "target")
+	targetStr := getParam(def.GetParams(), "target")
 	if targetStr == "" {
 		return nil, fmt.Errorf("missing target param")
 	}
@@ -207,7 +209,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 	}
 
 	safetyMargin := 1.0
-	if smStr := getParam(def.Params, "safetyMargin", "safety_margin"); smStr != "" {
+	if smStr := getParam(def.GetParams(), "safetyMargin", "safety_margin"); smStr != "" {
 		sm, err := strconv.ParseFloat(smStr, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid safetyMargin format")
@@ -218,11 +220,11 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		safetyMargin = sm
 	}
 
-	resourceLevel := getParam(def.Params, "resourceLevel", "resource_level")
+	resourceLevel := getParam(def.GetParams(), "resourceLevel", "resource_level")
 	if resourceLevel == "" {
 		resourceLevel = LevelContainer
 	}
-	container := getParam(def.Params, "container")
+	container := getParam(def.GetParams(), "container")
 	switch resourceLevel {
 	case LevelContainer:
 		if container == "" {
@@ -237,7 +239,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 	}
 
 	limitRatio := 0.0
-	if lrStr := getParam(def.Params, "limitRatio", "limit_ratio"); lrStr != "" {
+	if lrStr := getParam(def.GetParams(), "limitRatio", "limit_ratio"); lrStr != "" {
 		lr, err := strconv.ParseFloat(lrStr, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid limitRatio format")
@@ -248,7 +250,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		limitRatio = lr
 	}
 
-	resourceType := getParam(def.Params, "resourceType", "resource_type")
+	resourceType := getParam(def.GetParams(), "resourceType", "resource_type")
 	if resourceType == "" {
 		if strings.Contains(metric, "memory") || strings.Contains(metric, "mem") {
 			resourceType = "memory"
@@ -267,7 +269,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		limitRatio:    limitRatio,
 	}
 
-	if minCpuStr := getParam(def.Params, "minCpu", "min_cpu"); minCpuStr != "" {
+	if minCpuStr := getParam(def.GetParams(), "minCpu", "min_cpu"); minCpuStr != "" {
 		q, err := resource.ParseQuantity(minCpuStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid minCpu quantity: %v", err)
@@ -275,7 +277,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		cfg.minCpu = q.MilliValue()
 	}
 
-	if maxCpuStr := getParam(def.Params, "maxCpu", "max_cpu"); maxCpuStr != "" {
+	if maxCpuStr := getParam(def.GetParams(), "maxCpu", "max_cpu"); maxCpuStr != "" {
 		q, err := resource.ParseQuantity(maxCpuStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid maxCpu quantity: %v", err)
@@ -283,7 +285,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		cfg.maxCpu = q.MilliValue()
 	}
 
-	if minMemStr := getParam(def.Params, "minMemory", "min_memory"); minMemStr != "" {
+	if minMemStr := getParam(def.GetParams(), "minMemory", "min_memory"); minMemStr != "" {
 		q, err := resource.ParseQuantity(minMemStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid minMemory quantity: %v", err)
@@ -291,7 +293,7 @@ func parseConfig(def *pb.RecommenderDefinition) (*config, error) {
 		cfg.minMemory = q.Value()
 	}
 
-	if maxMemStr := getParam(def.Params, "maxMemory", "max_memory"); maxMemStr != "" {
+	if maxMemStr := getParam(def.GetParams(), "maxMemory", "max_memory"); maxMemStr != "" {
 		q, err := resource.ParseQuantity(maxMemStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid maxMemory quantity: %v", err)

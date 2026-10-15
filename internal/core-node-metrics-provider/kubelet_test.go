@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
@@ -56,11 +57,11 @@ func TestProcessKubeletMetric(t *testing.T) {
 	}{
 		{
 			name: "CPU Rate (Cores) - Per Container",
-			def: &pb.MetricDefinition{
-				Name:     "cpu_cores",
-				Provider: "kubelet",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("cpu_cores"),
+				Provider: proto.String("kubelet"),
 				Params:   map[string]string{"type": "cpu"},
-			},
+			}.Build(),
 			metrics1: &KubeletPodMetrics{Containers: map[string]*KubeletContainerMetrics{
 				"main":    {CPUUsageSeconds: floatPtr(10.0), Timestamp: intPtr(1000000000)},
 				"sidecar": {CPUUsageSeconds: floatPtr(5.0), Timestamp: intPtr(1000000000)},
@@ -73,25 +74,25 @@ func TestProcessKubeletMetric(t *testing.T) {
 				"sidecar": {CPUUsageSeconds: floatPtr(5.5), Timestamp: intPtr(1000010000)},
 			}},
 			want: []*pb.MetricBatch{
-				{
-					PodName:       "test-pod",
-					ContainerName: "main",
-					Samples:       []*pb.MetricSample{{Name: "cpu_cores", ResourceName: "cpu", Value: 0.1, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
-				{
-					PodName:       "test-pod",
-					ContainerName: "sidecar",
-					Samples:       []*pb.MetricSample{{Name: "cpu_cores", ResourceName: "cpu", Value: 0.05, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("main"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.1), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("sidecar"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.05), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
 			},
 		},
 		{
 			name: "CPU Utilization (%) - From Class",
-			def: &pb.MetricDefinition{
-				Name:     "cpu_util",
-				Provider: "kubelet",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("cpu_util"),
+				Provider: proto.String("kubelet"),
 				Params:   map[string]string{"type": "cpu"},
-			},
+			}.Build(),
 			class: &xasv1.MetricProviderClass{
 				Spec: xasv1.MetricProviderClassSpec{
 					Config: map[string]string{"mode": "utilization"},
@@ -109,58 +110,58 @@ func TestProcessKubeletMetric(t *testing.T) {
 				"sidecar": {CPUUsageSeconds: floatPtr(5.5), Timestamp: intPtr(1000010000)},
 			}},
 			want: []*pb.MetricBatch{
-				{
-					PodName:       "test-pod",
-					ContainerName: "main",
-					Samples:       []*pb.MetricSample{{Name: "cpu_util", ResourceName: "cpu", Value: 1.0, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
-				{
-					PodName:       "test-pod",
-					ContainerName: "sidecar",
-					Samples:       []*pb.MetricSample{{Name: "cpu_util", ResourceName: "cpu", Value: 1.0, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("main"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("sidecar"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
 			},
 		},
 		{
 			name: "Memory Bytes",
-			def: &pb.MetricDefinition{
-				Name:     "mem_bytes",
-				Provider: "kubelet",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("mem_bytes"),
+				Provider: proto.String("kubelet"),
 				Params:   map[string]string{"type": "memory"},
-			},
+			}.Build(),
 			metrics1: &KubeletPodMetrics{Containers: map[string]*KubeletContainerMetrics{
 				"main": {MemoryBytes: floatPtr(1024 * 1024), Timestamp: intPtr(1000000000)}, // 1Mi
 			}},
-			want: []*pb.MetricBatch{{
-				PodName:       "test-pod",
-				ContainerName: "main",
-				Samples:       []*pb.MetricSample{{Name: "mem_bytes", ResourceName: "memory", Value: 1048576, Timestamp: timestamppb.New(time.Unix(1000000, 0))}},
-			}},
+			want: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName:       proto.String("test-pod"),
+				ContainerName: proto.String("main"),
+				Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("mem_bytes"), ResourceName: proto.String("memory"), Value: proto.Float64(1048576), Timestamp: timestamppb.New(time.Unix(1000000, 0))}.Build()},
+			}.Build()},
 		},
 		{
 			name: "Memory Utilization (%)",
-			def: &pb.MetricDefinition{
-				Name:     "mem_util",
-				Provider: "kubelet",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("mem_util"),
+				Provider: proto.String("kubelet"),
 				Params:   map[string]string{"type": "memory", "mode": "utilization"},
-			},
+			}.Build(),
 			metrics1: &KubeletPodMetrics{Containers: map[string]*KubeletContainerMetrics{
 				// Request 100Mi. Usage 50Mi. Util = 50%.
 				"main": {MemoryBytes: floatPtr(50 * 1024 * 1024), Timestamp: intPtr(1000000000)},
 			}},
-			want: []*pb.MetricBatch{{
-				PodName:       "test-pod",
-				ContainerName: "main",
-				Samples:       []*pb.MetricSample{{Name: "mem_util", ResourceName: "memory", Value: 0.5, Timestamp: timestamppb.New(time.Unix(1000000, 0))}},
-			}},
+			want: []*pb.MetricBatch{pb.MetricBatch_builder{
+				PodName:       proto.String("test-pod"),
+				ContainerName: proto.String("main"),
+				Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("mem_util"), ResourceName: proto.String("memory"), Value: proto.Float64(0.5), Timestamp: timestamppb.New(time.Unix(1000000, 0))}.Build()},
+			}.Build()},
 		},
 		{
 			name: "Uneven Per-Container Rates",
-			def: &pb.MetricDefinition{
-				Name:     "cpu_per_container",
-				Provider: "kubelet",
+			def: pb.MetricDefinition_builder{
+				Name:     proto.String("cpu_per_container"),
+				Provider: proto.String("kubelet"),
 				Params:   map[string]string{"type": "cpu"},
-			},
+			}.Build(),
 			metrics1: &KubeletPodMetrics{Containers: map[string]*KubeletContainerMetrics{
 				"main":    {CPUUsageSeconds: floatPtr(10.0), Timestamp: intPtr(1000000000)},
 				"sidecar": {CPUUsageSeconds: floatPtr(5.0), Timestamp: intPtr(1000000000)},
@@ -171,16 +172,16 @@ func TestProcessKubeletMetric(t *testing.T) {
 				"sidecar": {CPUUsageSeconds: floatPtr(5.1), Timestamp: intPtr(1000010000)},
 			}},
 			want: []*pb.MetricBatch{
-				{
-					PodName:       "test-pod",
-					ContainerName: "main",
-					Samples:       []*pb.MetricSample{{Name: "cpu_per_container", ResourceName: "cpu", Value: 1.0, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
-				{
-					PodName:       "test-pod",
-					ContainerName: "sidecar",
-					Samples:       []*pb.MetricSample{{Name: "cpu_per_container", ResourceName: "cpu", Value: 0.01, Timestamp: timestamppb.New(time.Unix(1000010, 0))}},
-				},
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("main"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
+				pb.MetricBatch_builder{
+					PodName:       proto.String("test-pod"),
+					ContainerName: proto.String("sidecar"),
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.01), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
+				}.Build(),
 			},
 		},
 	}
@@ -193,7 +194,7 @@ func TestProcessKubeletMetric(t *testing.T) {
 			seen := make(map[string]bool)
 
 			getParam := func(m *pb.MetricDefinition, class *xasv1.MetricProviderClass, key string) string {
-				if val, ok := m.Params[key]; ok {
+				if val, ok := m.GetParams()[key]; ok {
 					return val
 				}
 				if class != nil {
@@ -228,7 +229,7 @@ func TestProcessKubeletMetric(t *testing.T) {
 
 			got := provider.processKubeletMetric(pod, tc.def, metricsMap, seen, tc.class)
 
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform(), protocmp.IgnoreDefaultScalars(), cmpopts.EquateApprox(0, 0.0001)); diff != "" {
 				t.Errorf("Mismatch (-want +got):\n%s", diff)
 			}
 		})

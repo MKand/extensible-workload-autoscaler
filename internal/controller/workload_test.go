@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
@@ -22,11 +23,11 @@ func TestBuildContainerStates(t *testing.T) {
 		withContainer("empty", nil, nil),
 	)
 	want := []*pb.ContainerState{
-		{Name: "app", Requests: map[string]string{"cpu": "100m", "memory": "128Mi"}, Limits: map[string]string{"cpu": "500m", "memory": "512Mi"}},
-		{Name: "sidecar", Requests: map[string]string{"cpu": "10m"}},
-		{Name: "empty"},
+		pb.ContainerState_builder{Name: proto.String("app"), Requests: map[string]string{"cpu": "100m", "memory": "128Mi"}, Limits: map[string]string{"cpu": "500m", "memory": "512Mi"}}.Build(),
+		pb.ContainerState_builder{Name: proto.String("sidecar"), Requests: map[string]string{"cpu": "10m"}}.Build(),
+		pb.ContainerState_builder{Name: proto.String("empty")}.Build(),
 	}
-	if diff := cmp.Diff(want, buildContainerStates(pod), protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(want, buildContainerStates(pod), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 		t.Errorf("buildContainerStates() mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -53,12 +54,12 @@ func TestBuildPodState(t *testing.T) {
 					{Type: corev1.PodReady, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: transition}},
 				},
 			},
-			want: &pb.PodState{
-				Phase:                   "Running",
+			want: pb.PodState_builder{
+				Phase:                   proto.String("Running"),
 				StartTime:               timestamppb.New(start),
-				IsReady:                 true,
+				IsReady:                 proto.Bool(true),
 				ReadyLastTransitionTime: timestamppb.New(transition),
-			},
+			}.Build(),
 		},
 		{
 			name: "running and not ready",
@@ -69,16 +70,16 @@ func TestBuildPodState(t *testing.T) {
 					{Type: corev1.PodReady, Status: corev1.ConditionFalse, LastTransitionTime: metav1.Time{Time: transition}},
 				},
 			},
-			want: &pb.PodState{
-				Phase:                   "Running",
+			want: pb.PodState_builder{
+				Phase:                   proto.String("Running"),
 				StartTime:               timestamppb.New(start),
 				ReadyLastTransitionTime: timestamppb.New(transition),
-			},
+			}.Build(),
 		},
 		{
 			name:   "pending, not acknowledged by the kubelet yet",
 			status: corev1.PodStatus{Phase: corev1.PodPending},
-			want:   &pb.PodState{Phase: "Pending"},
+			want:   pb.PodState_builder{Phase: proto.String("Pending")}.Build(),
 		},
 		{
 			name:     "terminating",
@@ -90,13 +91,13 @@ func TestBuildPodState(t *testing.T) {
 					{Type: corev1.PodReady, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: transition}},
 				},
 			},
-			want: &pb.PodState{
-				Phase:                   "Running",
+			want: pb.PodState_builder{
+				Phase:                   proto.String("Running"),
 				StartTime:               timestamppb.New(start),
-				IsReady:                 true,
+				IsReady:                 proto.Bool(true),
 				ReadyLastTransitionTime: timestamppb.New(transition),
 				DeletionTimestamp:       timestamppb.New(transition.Add(time.Hour)),
-			},
+			}.Build(),
 		},
 	}
 	for _, tc := range tests {
@@ -104,10 +105,10 @@ func TestBuildPodState(t *testing.T) {
 			pod := newPod()
 			pod.Status = tc.status
 			pod.DeletionTimestamp = tc.deletion
-			tc.want.Name = pod.Name
-			tc.want.NodeName = pod.Spec.NodeName
-			tc.want.Containers = []*pb.ContainerState{}
-			if diff := cmp.Diff(tc.want, buildPodState(pod), protocmp.Transform()); diff != "" {
+			tc.want.SetName(pod.Name)
+			tc.want.SetNodeName(pod.Spec.NodeName)
+			tc.want.SetContainers([]*pb.ContainerState{})
+			if diff := cmp.Diff(tc.want, buildPodState(pod), protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
 				t.Errorf("buildPodState() mismatch (-want +got):\n%s", diff)
 			}
 		})

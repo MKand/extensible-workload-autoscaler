@@ -876,7 +876,7 @@ func TestGetControlMetrics_TerminatingPod(t *testing.T) {
 		Workload: &pb.Workload{
 			Pods: []*pb.PodState{
 				{Name: "pod-ready", Phase: "Running", StartTime: start, IsReady: true, ReadyLastTransitionTime: ready},
-				{Name: "pod-terminating", Phase: "Running", StartTime: start, IsReady: true, ReadyLastTransitionTime: ready, Terminating: true},
+				{Name: "pod-terminating", Phase: "Running", StartTime: start, IsReady: true, ReadyLastTransitionTime: ready, DeletionTimestamp: timestamppb.New(time.Unix(5000, 0))},
 			},
 		},
 	})

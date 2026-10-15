@@ -854,6 +854,58 @@ func TestGetControlMetrics_PodEligibility(t *testing.T) {
 	}
 }
 
+// Terminating pods are not eligible, even while they are still ready.
+func TestGetControlMetrics_TerminatingPod(t *testing.T) {
+	clk := &clock.FakeClock{CurrentTime: time.Unix(10000, 0)}
+	memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)
+	defer cleanup()
+	ctx := context.Background()
+
+	id := &pb.PolicyId{ClusterName: "c1", Namespace: "ns", Name: "p1"}
+	client.CreatePolicy(ctx, &pb.CreatePolicyRequest{
+		Policy: &pb.Policy{
+			Id:      id,
+			Metrics: []*pb.MetricDefinition{{Name: "m1", Gauge: &pb.Gauge{Aggregation: "Sum"}}},
+		},
+	})
+
+	start := timestamppb.New(time.Unix(1000, 0))
+	ready := timestamppb.New(time.Unix(1010, 0))
+	client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
+		Id: id,
+		Workload: &pb.Workload{
+			Pods: []*pb.PodState{
+				{Name: "pod-ready", Phase: "Running", StartTime: start, IsReady: true, ReadyLastTransitionTime: ready},
+				{Name: "pod-terminating", Phase: "Running", StartTime: start, IsReady: true, ReadyLastTransitionTime: ready, DeletionTimestamp: timestamppb.New(time.Unix(5000, 0))},
+			},
+		},
+	})
+
+	ts := clk.Now().Unix()
+	client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
+		ClusterName: "c1", Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{{
+			Namespace: "ns", Name: "p1",
+			Batches: []*pb.MetricBatch{
+				{PodName: "pod-ready", Samples: []*pb.MetricSample{{Name: "m1", Value: 10}}},
+				{PodName: "pod-terminating", Samples: []*pb.MetricSample{{Name: "m1", Value: 100}}}, // Should be ignored
+			},
+		}},
+	})
+
+	memStore.CalculateAll()
+	cm, _ := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: id})
+
+	wantCM := &pb.ControlMetrics{
+		Values:        map[string]float64{"m1": 10},
+		Timestamp:     timestamppb.New(time.Unix(ts, 0)),
+		ReadyReplicas: 1,
+	}
+	if diff := cmp.Diff(wantCM, cm, protocmp.Transform()); diff != "" {
+		t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestGetControlMetrics_PolicyUpdate(t *testing.T) {
 	clk := &clock.FakeClock{CurrentTime: time.Unix(1000, 0)}
 	memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)

@@ -38,9 +38,10 @@ func TestBuildPodState(t *testing.T) {
 	transition := start.Add(time.Minute)
 
 	tests := []struct {
-		name   string
-		status corev1.PodStatus
-		want   *pb.PodState
+		name     string
+		deletion *metav1.Time
+		status   corev1.PodStatus
+		want     *pb.PodState
 	}{
 		{
 			name: "running and ready",
@@ -79,11 +80,30 @@ func TestBuildPodState(t *testing.T) {
 			status: corev1.PodStatus{Phase: corev1.PodPending},
 			want:   &pb.PodState{Phase: "Pending"},
 		},
+		{
+			name:     "terminating",
+			deletion: &metav1.Time{Time: transition.Add(time.Hour)},
+			status: corev1.PodStatus{
+				Phase:     corev1.PodRunning,
+				StartTime: &metav1.Time{Time: start},
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: transition}},
+				},
+			},
+			want: &pb.PodState{
+				Phase:                   "Running",
+				StartTime:               timestamppb.New(start),
+				IsReady:                 true,
+				ReadyLastTransitionTime: timestamppb.New(transition),
+				DeletionTimestamp:       timestamppb.New(transition.Add(time.Hour)),
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			pod := newPod()
 			pod.Status = tc.status
+			pod.DeletionTimestamp = tc.deletion
 			tc.want.Name = pod.Name
 			tc.want.NodeName = pod.Spec.NodeName
 			tc.want.Containers = []*pb.ContainerState{}

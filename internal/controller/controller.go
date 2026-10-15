@@ -641,6 +641,9 @@ func buildPodState(pod *corev1.Pod) *pb.PodState {
 		Phase:      string(pod.Status.Phase),
 		Containers: buildContainerStates(pod),
 	}
+	if pod.DeletionTimestamp != nil {
+		state.DeletionTimestamp = timestamppb.New(pod.DeletionTimestamp.Time)
+	}
 	if pod.Status.StartTime != nil {
 		state.StartTime = timestamppb.New(pod.Status.StartTime.Time)
 	}

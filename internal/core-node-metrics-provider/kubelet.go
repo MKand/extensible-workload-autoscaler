@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 
@@ -173,7 +174,7 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 	batches := make([]*pb.MetricBatch, 0, len(podStats.Containers))
 
 	for cName, cStats := range podStats.Containers {
-		val, ts, ok := a.containerUsage(pod, cName, cStats, metricType, m.GetName(), seenKeys)
+		val, ts, window, ok := a.containerUsage(pod, cName, cStats, metricType, m.GetName(), seenKeys)
 		if !ok {
 			continue
 		}
@@ -190,18 +191,20 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 			val /= req
 		}
 
+		sample := pb.MetricSample_builder{
+			Name:            proto.String(m.GetName()),
+			RecommenderName: proto.String(m.GetRecommenderName()),
+			ResourceName:    proto.String(metricType),
+			Value:           proto.Float64(val),
+			Timestamp:       timestamppb.New(time.Unix(ts, 0)),
+		}
+		if window > 0 {
+			sample.Window = durationpb.New(window)
+		}
 		batches = append(batches, pb.MetricBatch_builder{
 			PodName:       proto.String(pod.Name),
 			ContainerName: proto.String(cName),
-			Samples: []*pb.MetricSample{
-				pb.MetricSample_builder{
-					Name:            proto.String(m.GetName()),
-					RecommenderName: proto.String(m.GetRecommenderName()),
-					ResourceName:    proto.String(metricType),
-					Value:           proto.Float64(val),
-					Timestamp:       timestamppb.New(time.Unix(ts, 0)),
-				}.Build(),
-			},
+			Samples:       []*pb.MetricSample{sample.Build()},
 		}.Build())
 	}
 
@@ -215,12 +218,15 @@ func (a *CoreNodeMetricsProvider) processKubeletMetric(pod corev1.Pod, m *pb.Met
 }
 
 // containerUsage returns the current usage of a single container for the given
-// metric type, along with the timestamp of the sample (in seconds).
+// metric type, along with the timestamp of the sample (in seconds) and the
+// duration of the interval it was measured over (zero for instantaneous
+// values).
 //
-// For "cpu" the raw kubelet counter is converted into a rate (cores) using the
-// previously scraped sample, so no value is reported on the very first scrape.
-// For "memory" the working set gauge is reported as is (bytes).
-func (a *CoreNodeMetricsProvider) containerUsage(pod corev1.Pod, containerName string, cStats *KubeletContainerMetrics, metricType, metricName string, seenKeys map[string]bool) (float64, int64, bool) {
+// For "cpu" the raw kubelet counter is converted into a rate (cores) over the
+// interval since the previously scraped sample, so no value is reported on the
+// very first scrape. For "memory" the working set gauge is reported as is
+// (bytes).
+func (a *CoreNodeMetricsProvider) containerUsage(pod corev1.Pod, containerName string, cStats *KubeletContainerMetrics, metricType, metricName string, seenKeys map[string]bool) (float64, int64, time.Duration, bool) {
 	timestamp := func() int64 {
 		if cStats.Timestamp != nil {
 			return *cStats.Timestamp / 1000
@@ -240,7 +246,7 @@ func (a *CoreNodeMetricsProvider) containerUsage(pod corev1.Pod, containerName s
 		a.lastSamples[stateKey] = SampleState{Timestamp: ts, Value: rawVal}
 
 		if !ok || ts <= last.Timestamp {
-			return 0, 0, false
+			return 0, 0, 0, false
 		}
 
 		diff := rawVal - last.Value
@@ -249,13 +255,14 @@ func (a *CoreNodeMetricsProvider) containerUsage(pod corev1.Pod, containerName s
 			// the delta.
 			diff = rawVal
 		}
-		return diff / float64(ts-last.Timestamp), ts, true
+		interval := ts - last.Timestamp
+		return diff / float64(interval), ts, time.Duration(interval) * time.Second, true
 
 	case metricType == "memory" && cStats.MemoryBytes != nil:
-		return *cStats.MemoryBytes, timestamp(), true
+		return *cStats.MemoryBytes, timestamp(), 0, true
 	}
 
-	return 0, 0, false
+	return 0, 0, 0, false
 }
 
 func getContainerRequest(pod *corev1.Pod, containerName, metricType string) (float64, bool) {

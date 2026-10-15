@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"iter"
 	"maps"
 	"time"
 
@@ -133,7 +134,7 @@ func (ms *MetricStore) seriesIngestSample(ser *model.Series, m *pb.MetricSample,
 	if ts.Before(ser.LastRaw.Timestamp) {
 		return // Drop out of order samples
 	}
-	sample := model.Sample{Timestamp: ts, Value: m.GetValue(), Distribution: model.NewDistributionFromHistogram(m.GetHistogram())}
+	sample := model.Sample{Timestamp: ts, Window: m.GetWindow().AsDuration(), Value: m.GetValue(), Distribution: model.NewDistributionFromHistogram(m.GetHistogram())}
 	ser.AddSample(sample, ingestTime)
 }
 
@@ -210,7 +211,8 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 		if metricSeries.isEmpty() {
 			continue
 		}
-		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(maps.Values(metricSeries.Series), workload))
+		series := filterInitializingCPU(maps.Values(metricSeries.Series), def, workload, now)
+		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(series, workload))
 	}
 
 	// Skip empty ContainerMetrics as, unlike empty maps, an empty proto message
@@ -220,6 +222,44 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 	}
 
 	return cm
+}
+
+// resourceCPU is the resource name of CPU usage samples
+// (MetricSample.resource_name).
+const resourceCPU = "cpu"
+
+// filterInitializingCPU drops the CPU usage series of the pods still in their
+// CPU initialization period whose last sample was not entirely measured after
+// the pod became ready. See podutil.IsCPUSampleEligible. Series of other
+// resources, and of pods not in the workload, are passed through: the
+// aggregation filters them on its own.
+func filterInitializingCPU(series iter.Seq[*model.Series], def *pb.MetricDefinition, workload map[string]*pb.PodState, now time.Time) iter.Seq[*model.Series] {
+	return func(yield func(*model.Series) bool) {
+		for ser := range series {
+			if ser.ResourceName == resourceCPU {
+				if pod, ok := workload[ser.PodName]; ok && !podutil.IsCPUSampleEligible(podutil.FromPodState(pod), ser.LastRaw.Timestamp, measurementWindow(def, ser), now) {
+					continue
+				}
+			}
+			if !yield(ser) {
+				return
+			}
+		}
+	}
+}
+
+// measurementWindow returns the duration of the interval the series' current
+// value was measured over: the window of its last sample, extended to the
+// window the metric computes its rate over, if any.
+func measurementWindow(def *pb.MetricDefinition, ser *model.Series) time.Duration {
+	w := ser.LastRaw.Window
+	if rw := def.GetRate().GetWindow().AsDuration(); rw > w {
+		w = rw
+	}
+	if rw := def.GetDecayingDistribution().GetRate().AsDuration(); rw > w {
+		w = rw
+	}
+	return w
 }
 
 // filterEligiblePods returns the pods of the workload whose metrics should be

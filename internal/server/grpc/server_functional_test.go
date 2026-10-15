@@ -906,6 +906,108 @@ func TestGetControlMetrics_TerminatingPod(t *testing.T) {
 	}
 }
 
+// During the CPU initialization period, a pod's CPU sample only counts once it
+// was entirely measured after the pod became ready. Other resources are not
+// affected.
+func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
+	// All the pods started at t=1000 and became ready at t=1060. The samples
+	// are measured over a 30s window ending at their timestamp.
+	start := timestamppb.New(time.Unix(1000, 0))
+	ready := timestamppb.New(time.Unix(1060, 0))
+	window := durationpb.New(30 * time.Second)
+
+	tests := []struct {
+		name          string
+		now           int64 // the evaluation time
+		sampleTime    int64 // the samples' timestamp
+		wantCPU       float64
+		wantCPUReport bool
+	}{
+		{
+			name:       "initializing, sample window started before readiness",
+			now:        1080,
+			sampleTime: 1080, // measured over [1050, 1080]
+		},
+		{
+			name:          "initializing, sample window started after readiness",
+			now:           1100,
+			sampleTime:    1100, // measured over [1070, 1100]
+			wantCPU:       2,
+			wantCPUReport: true,
+		},
+		{
+			name:          "past the initialization period",
+			now:           1000 + 300,
+			sampleTime:    1000 + 300,
+			wantCPU:       2,
+			wantCPUReport: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clk := &clock.FakeClock{CurrentTime: time.Unix(tc.now, 0)}
+			memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)
+			defer cleanup()
+			ctx := context.Background()
+
+			id := pb.PolicyId_builder{ClusterName: proto.String("c1"), Namespace: proto.String("ns"), Name: proto.String("p1")}.Build()
+			client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+				Policy: pb.Policy_builder{
+					Id: id,
+					Metrics: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+						pb.MetricDefinition_builder{Name: proto.String("mem"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+					},
+				}.Build(),
+			}.Build())
+			client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+				Id: id,
+				Workload: pb.Workload_builder{Pods: []*pb.PodState{
+					pb.PodState_builder{
+						Name: proto.String("p1"), Phase: proto.String("Running"), StartTime: start, IsReady: proto.Bool(true), ReadyLastTransitionTime: ready,
+						// Resource samples are weighted by the container's request.
+						Containers: []*pb.ContainerState{pb.ContainerState_builder{Name: proto.String("c"), Requests: map[string]string{"cpu": "1", "memory": "1Gi"}}.Build()},
+					}.Build(),
+				}}.Build(),
+			}.Build())
+
+			sampleTS := timestamppb.New(time.Unix(tc.sampleTime, 0))
+			if _, err := client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+				ClusterName: proto.String("c1"), Timestamp: timestamppb.New(clk.Now()),
+				Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+					Namespace: proto.String("ns"), Name: proto.String("p1"),
+					Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+						PodName: proto.String("p1"), ContainerName: proto.String("c"),
+						Samples: []*pb.MetricSample{
+							pb.MetricSample_builder{Name: proto.String("cpu"), ResourceName: proto.String("cpu"), Value: proto.Float64(2), Timestamp: sampleTS, Window: window}.Build(),
+							pb.MetricSample_builder{Name: proto.String("mem"), ResourceName: proto.String("memory"), Value: proto.Float64(512), Timestamp: sampleTS}.Build(),
+						},
+					}.Build()},
+				}.Build()},
+			}.Build()); err != nil {
+				t.Fatalf("IngestMetrics() = %v", err)
+			}
+
+			memStore.CalculateAll()
+			cm, err := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: id}.Build())
+			if err != nil {
+				t.Fatalf("GetControlMetrics() = %v", err)
+			}
+
+			wantValues := map[string]float64{"mem": 512}
+			if tc.wantCPUReport {
+				wantValues["cpu"] = tc.wantCPU
+			}
+			if diff := cmp.Diff(wantValues, cm.GetValues()); diff != "" {
+				t.Errorf("ControlMetrics.Values mismatch (-want +got):\n%s", diff)
+			}
+			if cm.GetReadyReplicas() != 1 {
+				t.Errorf("ReadyReplicas = %d, want 1", cm.GetReadyReplicas())
+			}
+		})
+	}
+}
+
 func TestGetControlMetrics_PolicyUpdate(t *testing.T) {
 	clk := &clock.FakeClock{CurrentTime: time.Unix(1000, 0)}
 	memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)

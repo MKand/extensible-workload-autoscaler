@@ -477,6 +477,7 @@ func TestDump(t *testing.T) {
               "Labels": null,
               "LastRaw": {
                 "Timestamp": "1970-01-01T00:16:40Z",
+                "Window": 0,
                 "Value": 1,
                 "Distribution": null,
                 "DecayingHistogram": null
@@ -919,6 +920,9 @@ func TestPodScopedDecayingHistogram(t *testing.T) {
 func TestContainerResourceRequestWeighting(t *testing.T) {
 	start := time.Unix(1000, 0)
 	clk := &clock.FakeClock{CurrentTime: start}
+	// The pods started long enough ago to be past their CPU initialization
+	// period, so that every cpu sample counts.
+	podStart := timestamppb.New(start.Add(-time.Hour))
 	s := NewMemoryStoreWithClock(clk)
 	ns, pol := "default", "weighted-pol"
 	id := pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(pol)}.Build()
@@ -947,16 +951,18 @@ func TestContainerResourceRequestWeighting(t *testing.T) {
 		Id: id,
 		Workload: pb.Workload_builder{Pods: []*pb.PodState{
 			pb.PodState_builder{
-				Name:    proto.String("p1"),
-				IsReady: proto.Bool(true),
+				Name:      proto.String("p1"),
+				IsReady:   proto.Bool(true),
+				StartTime: podStart,
 				Containers: []*pb.ContainerState{
 					pb.ContainerState_builder{Name: proto.String("c1"), Requests: map[string]string{"cpu": "100m"}}.Build(),
 					pb.ContainerState_builder{Name: proto.String("c2"), Requests: map[string]string{"cpu": "300m"}}.Build(),
 				},
 			}.Build(),
 			pb.PodState_builder{
-				Name:    proto.String("p2"),
-				IsReady: proto.Bool(true),
+				Name:      proto.String("p2"),
+				IsReady:   proto.Bool(true),
+				StartTime: podStart,
 				Containers: []*pb.ContainerState{
 					pb.ContainerState_builder{Name: proto.String("c1"), Requests: map[string]string{"cpu": "200m"}}.Build(),
 					// c2 has no cpu request: it is left out of the weighted pod
@@ -967,8 +973,9 @@ func TestContainerResourceRequestWeighting(t *testing.T) {
 			pb.PodState_builder{
 				// No container declares a cpu request, as with pods sized by
 				// pod-level resources only.
-				Name:    proto.String("p3"),
-				IsReady: proto.Bool(true),
+				Name:      proto.String("p3"),
+				IsReady:   proto.Bool(true),
+				StartTime: podStart,
 				Containers: []*pb.ContainerState{
 					pb.ContainerState_builder{Name: proto.String("c1")}.Build(),
 					pb.ContainerState_builder{Name: proto.String("c2")}.Build(),

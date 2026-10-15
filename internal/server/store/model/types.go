@@ -28,6 +28,9 @@ const (
 type Sample struct {
 	// Source Timestamp.
 	Timestamp time.Time
+	// The duration of the interval the sample was measured over, ending at
+	// Timestamp (e.g. for a usage rate). Zero for instantaneous values.
+	Window time.Duration
 	// If the sample is a scalar, its value.
 	Value float64
 	// If the sample is a distribution, its cumulative buckets: the counts

@@ -15,6 +15,12 @@ import (
 // the default of the HPA's --horizontal-pod-autoscaler-initial-readiness-delay.
 const InitialReadinessDelay = 30 * time.Second
 
+// CPUInitializationPeriod is the period after a pod starts during which its
+// CPU usage is only considered once it is ready and a full sample has been
+// measured since it became ready. It matches the default of the HPA's
+// --horizontal-pod-autoscaler-cpu-initialization-period.
+const CPUInitializationPeriod = 5 * time.Minute
+
 // Lifecycle holds the facts about a pod's lifecycle needed to decide whether
 // its metrics are eligible.
 type Lifecycle struct {
@@ -56,6 +62,33 @@ func IsEligible(l Lifecycle) bool {
 		return false
 	}
 	return !l.ReadyLastTransitionTime.Before(l.StartTime.Add(InitialReadinessDelay))
+}
+
+// IsCPUSampleEligible reports whether a CPU usage sample of an eligible pod
+// should be considered. CPU usage is typically high and erratic while a pod
+// starts, so during CPUInitializationPeriod after the pod start, a sample only
+// counts if the pod is ready and the sample was entirely measured after the
+// pod became ready, as in the HPA.
+//
+// The sample was measured over [sampleTime - window, sampleTime]; window is
+// zero for instantaneous values. now is the time of the evaluation.
+func IsCPUSampleEligible(l Lifecycle, sampleTime time.Time, window time.Duration, now time.Time) bool {
+	// Without a start time, the pod has not been acknowledged by the kubelet
+	// yet, so it cannot have a meaningful CPU sample.
+	if l.StartTime.IsZero() {
+		return false
+	}
+	// Past the initialization period: the sample counts whatever the pod's
+	// readiness. A pod that became unready later in its life keeps counting
+	// (see IsEligible).
+	if !now.Before(l.StartTime.Add(CPUInitializationPeriod)) {
+		return true
+	}
+	// Within the initialization period: the pod must be ready, and the whole
+	// sample interval must start at or after the last readiness transition,
+	// i.e. sampleTime - window >= ReadyLastTransitionTime. Otherwise part of
+	// the measured CPU dates from before the pod was ready.
+	return l.Ready && !sampleTime.Before(l.ReadyLastTransitionTime.Add(window))
 }
 
 // ReadyCondition returns the pod's Ready condition, or nil if it has none.

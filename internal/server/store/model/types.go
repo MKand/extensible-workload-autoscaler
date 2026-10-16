@@ -28,9 +28,6 @@ const (
 type Sample struct {
 	// Source Timestamp.
 	Timestamp time.Time
-	// The duration of the interval the sample was measured over, ending at
-	// Timestamp (e.g. for a usage rate). Zero for instantaneous values.
-	Window time.Duration
 	// If the sample is a scalar, its value.
 	Value float64
 	// If the sample is a distribution, its cumulative buckets: the counts
@@ -62,6 +59,11 @@ type Series struct {
 	// LastRaw is the most recent sample ingested for the series. Its timestamp
 	// is used to garbage collect series that stopped reporting.
 	LastRaw Sample
+	// LastRawWindow is the time elapsed between LastRaw and the sample before
+	// it, i.e. the interval LastRaw was measured over when the source reports
+	// rates between consecutive scrapes (e.g. CPU usage). Zero for the first
+	// sample of the series.
+	LastRawWindow time.Duration
 	// TimeWindow is the temportal aggregation for the series.
 	TimeWindow TimeWindow `json:"-"`
 }
@@ -82,6 +84,9 @@ func NewSeries(podName, containerName, resourceName string, labels map[string]st
 // the series and records it as the latest raw sample.
 func (s *Series) AddSample(sample Sample, now time.Time) {
 	s.TimeWindow.AddSample(sample, now)
+	if !s.LastRaw.Timestamp.IsZero() {
+		s.LastRawWindow = sample.Timestamp.Sub(s.LastRaw.Timestamp)
+	}
 	s.LastRaw = sample
 }
 

@@ -910,16 +910,17 @@ func TestGetControlMetrics_TerminatingPod(t *testing.T) {
 // was entirely measured after the pod became ready. Other resources are not
 // affected.
 func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
-	// All the pods started at t=1000 and became ready at t=1060. The samples
-	// are measured over a 30s window ending at their timestamp.
+	// The pod started at t=1000 and became ready at t=1060. Each series gets
+	// two samples 30s apart: the Server infers from them that the second one
+	// was measured over the 30s ending at its timestamp.
 	start := timestamppb.New(time.Unix(1000, 0))
 	ready := timestamppb.New(time.Unix(1060, 0))
-	window := durationpb.New(30 * time.Second)
+	const window = 30
 
 	tests := []struct {
 		name          string
 		now           int64 // the evaluation time
-		sampleTime    int64 // the samples' timestamp
+		sampleTime    int64 // the timestamp of the last sample
 		wantCPU       float64
 		wantCPUReport bool
 	}{
@@ -971,21 +972,23 @@ func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 				}}.Build(),
 			}.Build())
 
-			sampleTS := timestamppb.New(time.Unix(tc.sampleTime, 0))
-			if _, err := client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
-				ClusterName: proto.String("c1"), Timestamp: timestamppb.New(clk.Now()),
-				Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
-					Namespace: proto.String("ns"), Name: proto.String("p1"),
-					Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
-						PodName: proto.String("p1"), ContainerName: proto.String("c"),
-						Samples: []*pb.MetricSample{
-							pb.MetricSample_builder{Name: proto.String("cpu"), ResourceName: proto.String("cpu"), Value: proto.Float64(2), Timestamp: sampleTS, Window: window}.Build(),
-							pb.MetricSample_builder{Name: proto.String("mem"), ResourceName: proto.String("memory"), Value: proto.Float64(512), Timestamp: sampleTS}.Build(),
-						},
+			for _, sampleTime := range []int64{tc.sampleTime - window, tc.sampleTime} {
+				sampleTS := timestamppb.New(time.Unix(sampleTime, 0))
+				if _, err := client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+					ClusterName: proto.String("c1"), Timestamp: timestamppb.New(clk.Now()),
+					Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+						Namespace: proto.String("ns"), Name: proto.String("p1"),
+						Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
+							PodName: proto.String("p1"), ContainerName: proto.String("c"),
+							Samples: []*pb.MetricSample{
+								pb.MetricSample_builder{Name: proto.String("cpu"), ResourceName: proto.String("cpu"), Value: proto.Float64(2), Timestamp: sampleTS}.Build(),
+								pb.MetricSample_builder{Name: proto.String("mem"), ResourceName: proto.String("memory"), Value: proto.Float64(512), Timestamp: sampleTS}.Build(),
+							},
+						}.Build()},
 					}.Build()},
-				}.Build()},
-			}.Build()); err != nil {
-				t.Fatalf("IngestMetrics() = %v", err)
+				}.Build()); err != nil {
+					t.Fatalf("IngestMetrics() = %v", err)
+				}
 			}
 
 			memStore.CalculateAll()

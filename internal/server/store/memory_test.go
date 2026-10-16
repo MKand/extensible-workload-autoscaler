@@ -477,11 +477,11 @@ func TestDump(t *testing.T) {
               "Labels": null,
               "LastRaw": {
                 "Timestamp": "1970-01-01T00:16:40Z",
-                "Window": 0,
                 "Value": 1,
                 "Distribution": null,
                 "DecayingHistogram": null
-              }
+              },
+              "LastRawWindow": 0
             }
           },
           "ResourceName": ""

@@ -9,7 +9,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -78,12 +77,12 @@ func TestProcessKubeletMetric(t *testing.T) {
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("main"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.1), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.1), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("sidecar"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.05), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_cores"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.05), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 			},
 		},
@@ -114,12 +113,12 @@ func TestProcessKubeletMetric(t *testing.T) {
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("main"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("sidecar"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_util"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 			},
 		},
@@ -176,12 +175,12 @@ func TestProcessKubeletMetric(t *testing.T) {
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("main"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(1.0), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 				pb.MetricBatch_builder{
 					PodName:       proto.String("test-pod"),
 					ContainerName: proto.String("sidecar"),
-					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.01), Timestamp: timestamppb.New(time.Unix(1000010, 0)), Window: durationpb.New(10 * time.Second)}.Build()},
+					Samples:       []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("cpu_per_container"), ResourceName: proto.String("cpu"), Value: proto.Float64(0.01), Timestamp: timestamppb.New(time.Unix(1000010, 0))}.Build()},
 				}.Build(),
 			},
 		},

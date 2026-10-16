@@ -4920,7 +4920,6 @@ type MetricSample struct {
 	xxx_hidden_Value           float64                `protobuf:"fixed64,3,opt,name=value"`
 	xxx_hidden_Timestamp       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp"`
 	xxx_hidden_Histogram       *Histogram             `protobuf:"bytes,5,opt,name=histogram"`
-	xxx_hidden_Window          *durationpb.Duration   `protobuf:"bytes,10,opt,name=window"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -5010,21 +5009,14 @@ func (x *MetricSample) GetHistogram() *Histogram {
 	return nil
 }
 
-func (x *MetricSample) GetWindow() *durationpb.Duration {
-	if x != nil {
-		return x.xxx_hidden_Window
-	}
-	return nil
-}
-
 func (x *MetricSample) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
 }
 
 func (x *MetricSample) SetRecommenderName(v string) {
 	x.xxx_hidden_RecommenderName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
 }
 
 func (x *MetricSample) SetLabels(v map[string]string) {
@@ -5033,12 +5025,12 @@ func (x *MetricSample) SetLabels(v map[string]string) {
 
 func (x *MetricSample) SetResourceName(v string) {
 	x.xxx_hidden_ResourceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *MetricSample) SetValue(v float64) {
 	x.xxx_hidden_Value = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 8)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
 }
 
 func (x *MetricSample) SetTimestamp(v *timestamppb.Timestamp) {
@@ -5047,10 +5039,6 @@ func (x *MetricSample) SetTimestamp(v *timestamppb.Timestamp) {
 
 func (x *MetricSample) SetHistogram(v *Histogram) {
 	x.xxx_hidden_Histogram = v
-}
-
-func (x *MetricSample) SetWindow(v *durationpb.Duration) {
-	x.xxx_hidden_Window = v
 }
 
 func (x *MetricSample) HasName() bool {
@@ -5095,13 +5083,6 @@ func (x *MetricSample) HasHistogram() bool {
 	return x.xxx_hidden_Histogram != nil
 }
 
-func (x *MetricSample) HasWindow() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Window != nil
-}
-
 func (x *MetricSample) ClearName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Name = nil
@@ -5130,10 +5111,6 @@ func (x *MetricSample) ClearHistogram() {
 	x.xxx_hidden_Histogram = nil
 }
 
-func (x *MetricSample) ClearWindow() {
-	x.xxx_hidden_Window = nil
-}
-
 type MetricSample_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -5151,10 +5128,6 @@ type MetricSample_builder struct {
 	Timestamp *timestamppb.Timestamp
 	// The histogram value of the sample (if its a distribution).
 	Histogram *Histogram
-	// For values measured over an interval (e.g. a CPU usage rate), the
-	// duration of that interval: the sample covers [timestamp - window,
-	// timestamp]. Unset for instantaneous values.
-	Window *durationpb.Duration
 }
 
 func (b0 MetricSample_builder) Build() *MetricSample {
@@ -5162,25 +5135,24 @@ func (b0 MetricSample_builder) Build() *MetricSample {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.RecommenderName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
 		x.xxx_hidden_RecommenderName = b.RecommenderName
 	}
 	x.xxx_hidden_Labels = b.Labels
 	if b.ResourceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_ResourceName = b.ResourceName
 	}
 	if b.Value != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 8)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
 		x.xxx_hidden_Value = *b.Value
 	}
 	x.xxx_hidden_Timestamp = b.Timestamp
 	x.xxx_hidden_Histogram = b.Histogram
-	x.xxx_hidden_Window = b.Window
 	return m0
 }
 
@@ -5599,7 +5571,7 @@ const file_xas_proto_rawDesc = "" +
 	"\vMetricBatch\x12\x19\n" +
 	"\bpod_name\x18\x01 \x01(\tR\apodName\x12%\n" +
 	"\x0econtainer_name\x18\x03 \x01(\tR\rcontainerName\x123\n" +
-	"\asamples\x18\x02 \x03(\v2\x19.xas.v1alpha.MetricSampleR\asamples\"\xa5\x03\n" +
+	"\asamples\x18\x02 \x03(\v2\x19.xas.v1alpha.MetricSampleR\asamples\"\xf2\x02\n" +
 	"\fMetricSample\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
 	"\x10recommender_name\x18\t \x01(\tR\x0frecommenderName\x12=\n" +
@@ -5607,9 +5579,7 @@ const file_xas_proto_rawDesc = "" +
 	"\rresource_name\x18\b \x01(\tR\fresourceName\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\x01R\x05value\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x124\n" +
-	"\thistogram\x18\x05 \x01(\v2\x16.xas.v1alpha.HistogramR\thistogram\x121\n" +
-	"\x06window\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationR\x06window\x1a9\n" +
+	"\thistogram\x18\x05 \x01(\v2\x16.xas.v1alpha.HistogramR\thistogram\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xae\x01\n" +
@@ -5762,39 +5732,38 @@ var file_xas_proto_depIdxs = []int32{
 	54, // 61: xas.v1alpha.MetricSample.labels:type_name -> xas.v1alpha.MetricSample.LabelsEntry
 	57, // 62: xas.v1alpha.MetricSample.timestamp:type_name -> google.protobuf.Timestamp
 	38, // 63: xas.v1alpha.MetricSample.histogram:type_name -> xas.v1alpha.Histogram
-	56, // 64: xas.v1alpha.MetricSample.window:type_name -> google.protobuf.Duration
-	55, // 65: xas.v1alpha.Histogram.buckets:type_name -> xas.v1alpha.Histogram.BucketsEntry
-	8,  // 66: xas.v1alpha.Policy.RecommenderMetricsEntry.value:type_name -> xas.v1alpha.MetricDefinitionList
-	22, // 67: xas.v1alpha.ContainerMetrics.ContainerMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
-	22, // 68: xas.v1alpha.ControlMetrics.PodMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
-	23, // 69: xas.v1alpha.ControlMetrics.PodContainerMetricsEntry.value:type_name -> xas.v1alpha.ContainerMetrics
-	3,  // 70: xas.v1alpha.XASServer.GetPolicy:input_type -> xas.v1alpha.GetPolicyRequest
-	1,  // 71: xas.v1alpha.XASServer.CreatePolicy:input_type -> xas.v1alpha.CreatePolicyRequest
-	2,  // 72: xas.v1alpha.XASServer.UpdatePolicy:input_type -> xas.v1alpha.UpdatePolicyRequest
-	4,  // 73: xas.v1alpha.XASServer.DeletePolicy:input_type -> xas.v1alpha.DeletePolicyRequest
-	5,  // 74: xas.v1alpha.XASServer.ListPolicies:input_type -> xas.v1alpha.ListPoliciesRequest
-	16, // 75: xas.v1alpha.XASServer.UpdateWorkload:input_type -> xas.v1alpha.UpdateWorkloadRequest
-	21, // 76: xas.v1alpha.XASServer.GetControlMetrics:input_type -> xas.v1alpha.GetControlMetricsRequest
-	17, // 77: xas.v1alpha.XASServer.GetWorkload:input_type -> xas.v1alpha.GetWorkloadRequest
-	25, // 78: xas.v1alpha.XASServer.UpdateRecommenderState:input_type -> xas.v1alpha.UpdateRecommenderStateRequest
-	31, // 79: xas.v1alpha.XASServer.GetRecommendation:input_type -> xas.v1alpha.GetRecommendationRequest
-	34, // 80: xas.v1alpha.XASServer.IngestMetrics:input_type -> xas.v1alpha.IngestMetricsRequest
-	7,  // 81: xas.v1alpha.XASServer.GetPolicy:output_type -> xas.v1alpha.Policy
-	7,  // 82: xas.v1alpha.XASServer.CreatePolicy:output_type -> xas.v1alpha.Policy
-	7,  // 83: xas.v1alpha.XASServer.UpdatePolicy:output_type -> xas.v1alpha.Policy
-	58, // 84: xas.v1alpha.XASServer.DeletePolicy:output_type -> google.protobuf.Empty
-	6,  // 85: xas.v1alpha.XASServer.ListPolicies:output_type -> xas.v1alpha.ListPoliciesResponse
-	18, // 86: xas.v1alpha.XASServer.UpdateWorkload:output_type -> xas.v1alpha.Workload
-	24, // 87: xas.v1alpha.XASServer.GetControlMetrics:output_type -> xas.v1alpha.ControlMetrics
-	18, // 88: xas.v1alpha.XASServer.GetWorkload:output_type -> xas.v1alpha.Workload
-	29, // 89: xas.v1alpha.XASServer.UpdateRecommenderState:output_type -> xas.v1alpha.RecommenderState
-	32, // 90: xas.v1alpha.XASServer.GetRecommendation:output_type -> xas.v1alpha.GetRecommendationResponse
-	39, // 91: xas.v1alpha.XASServer.IngestMetrics:output_type -> xas.v1alpha.IngestMetricsResponse
-	81, // [81:92] is the sub-list for method output_type
-	70, // [70:81] is the sub-list for method input_type
-	70, // [70:70] is the sub-list for extension type_name
-	70, // [70:70] is the sub-list for extension extendee
-	0,  // [0:70] is the sub-list for field type_name
+	55, // 64: xas.v1alpha.Histogram.buckets:type_name -> xas.v1alpha.Histogram.BucketsEntry
+	8,  // 65: xas.v1alpha.Policy.RecommenderMetricsEntry.value:type_name -> xas.v1alpha.MetricDefinitionList
+	22, // 66: xas.v1alpha.ContainerMetrics.ContainerMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
+	22, // 67: xas.v1alpha.ControlMetrics.PodMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
+	23, // 68: xas.v1alpha.ControlMetrics.PodContainerMetricsEntry.value:type_name -> xas.v1alpha.ContainerMetrics
+	3,  // 69: xas.v1alpha.XASServer.GetPolicy:input_type -> xas.v1alpha.GetPolicyRequest
+	1,  // 70: xas.v1alpha.XASServer.CreatePolicy:input_type -> xas.v1alpha.CreatePolicyRequest
+	2,  // 71: xas.v1alpha.XASServer.UpdatePolicy:input_type -> xas.v1alpha.UpdatePolicyRequest
+	4,  // 72: xas.v1alpha.XASServer.DeletePolicy:input_type -> xas.v1alpha.DeletePolicyRequest
+	5,  // 73: xas.v1alpha.XASServer.ListPolicies:input_type -> xas.v1alpha.ListPoliciesRequest
+	16, // 74: xas.v1alpha.XASServer.UpdateWorkload:input_type -> xas.v1alpha.UpdateWorkloadRequest
+	21, // 75: xas.v1alpha.XASServer.GetControlMetrics:input_type -> xas.v1alpha.GetControlMetricsRequest
+	17, // 76: xas.v1alpha.XASServer.GetWorkload:input_type -> xas.v1alpha.GetWorkloadRequest
+	25, // 77: xas.v1alpha.XASServer.UpdateRecommenderState:input_type -> xas.v1alpha.UpdateRecommenderStateRequest
+	31, // 78: xas.v1alpha.XASServer.GetRecommendation:input_type -> xas.v1alpha.GetRecommendationRequest
+	34, // 79: xas.v1alpha.XASServer.IngestMetrics:input_type -> xas.v1alpha.IngestMetricsRequest
+	7,  // 80: xas.v1alpha.XASServer.GetPolicy:output_type -> xas.v1alpha.Policy
+	7,  // 81: xas.v1alpha.XASServer.CreatePolicy:output_type -> xas.v1alpha.Policy
+	7,  // 82: xas.v1alpha.XASServer.UpdatePolicy:output_type -> xas.v1alpha.Policy
+	58, // 83: xas.v1alpha.XASServer.DeletePolicy:output_type -> google.protobuf.Empty
+	6,  // 84: xas.v1alpha.XASServer.ListPolicies:output_type -> xas.v1alpha.ListPoliciesResponse
+	18, // 85: xas.v1alpha.XASServer.UpdateWorkload:output_type -> xas.v1alpha.Workload
+	24, // 86: xas.v1alpha.XASServer.GetControlMetrics:output_type -> xas.v1alpha.ControlMetrics
+	18, // 87: xas.v1alpha.XASServer.GetWorkload:output_type -> xas.v1alpha.Workload
+	29, // 88: xas.v1alpha.XASServer.UpdateRecommenderState:output_type -> xas.v1alpha.RecommenderState
+	32, // 89: xas.v1alpha.XASServer.GetRecommendation:output_type -> xas.v1alpha.GetRecommendationResponse
+	39, // 90: xas.v1alpha.XASServer.IngestMetrics:output_type -> xas.v1alpha.IngestMetricsResponse
+	80, // [80:91] is the sub-list for method output_type
+	69, // [69:80] is the sub-list for method input_type
+	69, // [69:69] is the sub-list for extension type_name
+	69, // [69:69] is the sub-list for extension extendee
+	0,  // [0:69] is the sub-list for field type_name
 }
 
 func init() { file_xas_proto_init() }

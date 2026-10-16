@@ -513,10 +513,6 @@ message MetricSample {
   google.protobuf.Timestamp timestamp = 4;
   // The histogram value of the sample (if its a distribution).
   Histogram histogram = 5;
-  // For values measured over an interval (e.g. a CPU usage rate), the
-  // duration of that interval: the sample covers [timestamp - window,
-  // timestamp]. Unset for instantaneous values.
-  google.protobuf.Duration window = 10;
 }
 
 // A histogram (aka distribution) value.

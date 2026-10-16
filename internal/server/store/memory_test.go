@@ -784,6 +784,7 @@ func TestOrphanedMetricCleanup(t *testing.T) {
 	stored := mustUpdatePolicy(t, s, "default", pol)
 
 	// 2. Ingest data for both
+	reportReadyPods(t, s, ns, name, "p1")
 	ingest(s, clk.Now().Unix(), ns, name, "p1", "m1", 10)
 	ingest(s, clk.Now().Unix(), ns, name, "p1", "m2", 20)
 
@@ -1244,6 +1245,7 @@ func TestRecommenderOwnedMetricsCleanup(t *testing.T) {
 	stored := mustUpdatePolicy(t, s, "default", pol)
 
 	now := time.Now().Unix()
+	reportReadyPods(t, s, ns, name, "p1")
 	ingest(s, now, ns, name, "p1", "cpu", 1)
 	ingestOwned(s, now, ns, name, "p1", "vpa", "cpu", 10)
 
@@ -1269,6 +1271,22 @@ func TestRecommenderOwnedMetricsCleanup(t *testing.T) {
 
 // mustUpdatePolicy writes p to the store and fails the test on error. It
 // returns the stored policy, which carries the new ETag.
+// reportReadyPods reports the named pods of a policy as ready, so that their
+// samples are ingested.
+func reportReadyPods(t *testing.T, s *MemoryStore, ns, pol string, pods ...string) {
+	t.Helper()
+	states := make([]*pb.PodState, 0, len(pods))
+	for _, name := range pods {
+		states = append(states, pb.PodState_builder{Name: proto.String(name), IsReady: proto.Bool(true)}.Build())
+	}
+	if err := s.UpdateWorkload(pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(pol)}.Build(),
+		Workload: pb.Workload_builder{Pods: states}.Build(),
+	}.Build()); err != nil {
+		t.Fatalf("UpdateWorkload() = %v", err)
+	}
+}
+
 func mustUpdatePolicy(t *testing.T, s *MemoryStore, clusterName string, p *pb.Policy) *pb.Policy {
 	t.Helper()
 	stored, err := s.UpdatePolicy(clusterName, true, p)
@@ -1566,6 +1584,7 @@ func TestRemovedRecommenderOwnedMetricsGC(t *testing.T) {
 	}
 
 	now := time.Now().Unix()
+	reportReadyPods(t, s, ns, name, "p1")
 	ingestOwned(s, now, ns, name, "p1", "vpa", "cpu", 10)
 	ingestOwned(s, now, ns, name, "p1", "act", "cpu", 1)
 

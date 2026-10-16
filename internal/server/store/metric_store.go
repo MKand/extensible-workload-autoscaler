@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"iter"
 	"maps"
 	"time"
 
@@ -210,7 +211,8 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 		if metricSeries.isEmpty() {
 			continue
 		}
-		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(maps.Values(metricSeries.Series), workload))
+		series := filterInitializingCPU(maps.Values(metricSeries.Series), workload, now)
+		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(series, workload))
 	}
 
 	// Skip empty ContainerMetrics as, unlike empty maps, an empty proto message
@@ -220,6 +222,26 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 	}
 
 	return cm
+}
+
+// filterInitializingCPU drops the CPU usage series of the pods still in their
+// CPU initialization period whose last sample was not entirely measured after
+// the pod became ready. See podutil.IsCPUSampleEligible. Series of other
+// resources, and of pods not in the workload, are passed through: the
+// aggregation filters them on its own.
+func filterInitializingCPU(series iter.Seq[*model.Series], workload map[string]*pb.PodState, now time.Time) iter.Seq[*model.Series] {
+	return func(yield func(*model.Series) bool) {
+		for ser := range series {
+			if ser.ResourceName == "cpu" {
+				if pod, ok := workload[ser.PodName]; ok && !podutil.IsCPUSampleEligible(podutil.FromPodState(pod), ser.LastRaw.Timestamp, ser.LastRawWindow, now) {
+					continue
+				}
+			}
+			if !yield(ser) {
+				return
+			}
+		}
+	}
 }
 
 // filterEligiblePods returns the pods of the workload whose metrics should be

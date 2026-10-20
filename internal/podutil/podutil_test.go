@@ -160,6 +160,19 @@ func TestIsCPUSampleEligible(t *testing.T) {
 	}
 }
 
+func TestIsPodEligible(t *testing.T) {
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	workload := map[string]*pb.PodState{
+		"ready":       pb.PodState_builder{Phase: proto.String("Running"), StartTime: timestamppb.New(start), IsReady: proto.Bool(true), ReadyLastTransitionTime: timestamppb.New(start.Add(time.Minute))}.Build(),
+		"never-ready": pb.PodState_builder{Phase: proto.String("Running"), StartTime: timestamppb.New(start), ReadyLastTransitionTime: timestamppb.New(start.Add(time.Second))}.Build(),
+	}
+	for name, want := range map[string]bool{"ready": true, "never-ready": false, "unknown": false} {
+		if got := IsPodEligible(workload, name); got != want {
+			t.Errorf("IsPodEligible(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
+
 func TestReadyCondition(t *testing.T) {
 	transition := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
 	pod := &corev1.Pod{

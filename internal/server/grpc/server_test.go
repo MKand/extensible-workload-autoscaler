@@ -99,7 +99,13 @@ func TestServerEndToEndGRPC(t *testing.T) {
 		}.Build(),
 	}.Build())
 
-	// 2. Ingest T0
+	// 2. Workload: the pods must be reported before their samples are ingested.
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build()}}.Build(),
+	}.Build())
+
+	// 3. Ingest T0
 	ts := clk.Now().Unix()
 	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
@@ -115,7 +121,7 @@ func TestServerEndToEndGRPC(t *testing.T) {
 		},
 	}.Build())
 
-	// 3. Ingest T1 (10s later, +8 diff)
+	// 4. Ingest T1 (10s later, +8 diff)
 	clk.Advance(10 * time.Second)
 	ts = clk.Now().Unix()
 	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
@@ -130,12 +136,6 @@ func TestServerEndToEndGRPC(t *testing.T) {
 				},
 			}.Build(),
 		},
-	}.Build())
-
-	// 4. Workload
-	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
-		Id:       pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(policyName)}.Build(),
-		Workload: pb.Workload_builder{Pods: []*pb.PodState{pb.PodState_builder{Name: proto.String("p1"), IsReady: proto.Bool(true)}.Build(), pb.PodState_builder{Name: proto.String("p2"), IsReady: proto.Bool(true)}.Build()}}.Build(),
 	}.Build())
 
 	// 5. Calc Control Metrics

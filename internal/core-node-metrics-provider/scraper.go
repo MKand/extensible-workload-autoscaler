@@ -203,7 +203,7 @@ func (a *CoreNodeMetricsProvider) processGroupedPolicy(policy *groupedPolicy, ku
 	var podMetrics []*pb.MetricBatch
 
 	for _, pod := range pods.Items {
-		if pod.Status.Phase != "Running" || !isPodReady(&pod) {
+		if !shouldScrape(&pod) {
 			continue
 		}
 
@@ -262,11 +262,12 @@ func (a *CoreNodeMetricsProvider) sendBatch(pbReq *pb.IngestMetricsRequest) {
 	slog.Info("Batch sent", "success", resp.GetSuccess())
 }
 
-func isPodReady(pod *corev1.Pod) bool {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
+// shouldScrape reports whether the metrics of a pod can be scraped: only a
+// running pod has containers to collect metrics from. This is not an
+// eligibility decision: whether a scraped sample is eventually considered
+// (e.g. depending on the pod's readiness, or whether it is shutting down) is
+// decided by the xAS Server, which knows the pod's lifecycle. See
+// podutil.IsEligible.
+func shouldScrape(pod *corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodRunning
 }

@@ -65,10 +65,12 @@ func NewMetricStore() *MetricStore {
 }
 
 // IngestMetrics ingests a slice of metric batches for the given policy.
-func (ms *MetricStore) IngestMetrics(policy *pb.Policy, batches []*pb.MetricBatch, ingestTime time.Time) error {
+// IngestMetrics ingests the given metric batches of a policy. workload is
+// the current state of the policy's pods, keyed by name.
+func (ms *MetricStore) IngestMetrics(policy *pb.Policy, workload map[string]*pb.PodState, batches []*pb.MetricBatch, ingestTime time.Time) error {
 	for _, batch := range batches {
 		for _, m := range batch.GetSamples() {
-			if err := ms.ingestSample(policy, batch.GetPodName(), batch.GetContainerName(), m, ingestTime); err != nil {
+			if err := ms.ingestSample(policy, workload, batch.GetPodName(), batch.GetContainerName(), m, ingestTime); err != nil {
 				return err
 			}
 		}
@@ -95,7 +97,7 @@ func findMetricDefinition(policy *pb.Policy, owner, name string) *pb.MetricDefin
 	return nil
 }
 
-func (ms *MetricStore) ingestSample(policy *pb.Policy, podName, containerName string, sample *pb.MetricSample, ingestTime time.Time) error {
+func (ms *MetricStore) ingestSample(policy *pb.Policy, workload map[string]*pb.PodState, podName, containerName string, sample *pb.MetricSample, ingestTime time.Time) error {
 	owner := sample.GetRecommenderName()
 	def := findMetricDefinition(policy, owner, sample.GetName())
 	if def == nil {
@@ -107,6 +109,16 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, podName, containerName st
 
 	// Filter early
 	if !model.MatchFilter(sample.GetLabels(), def.GetFilter()) {
+		return nil
+	}
+
+	// The samples of the pods that aren't eligible (e.g. still starting up,
+	// or unknown to the workload) are dropped: they must not enter the time
+	// windows, and the samples of the global decaying distributions can't be
+	// told apart once in the workload-wide histogram. Eligibility can also
+	// change after a sample was ingested (e.g. the pod starts terminating),
+	// which the aggregation handles by filtering the series.
+	if podName != "" && !podutil.IsPodEligible(workload, podName) {
 		return nil
 	}
 

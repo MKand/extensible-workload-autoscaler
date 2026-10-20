@@ -91,6 +91,14 @@ func IsCPUSampleEligible(l Lifecycle, sampleTime time.Time, window time.Duration
 	return l.Ready && !sampleTime.Before(l.ReadyLastTransitionTime.Add(window))
 }
 
+// IsPodEligible reports whether the metrics of the named pod should be
+// considered, given the workload (the pods reported to the Server, keyed by
+// name). A pod the workload does not know is not eligible.
+func IsPodEligible(workload map[string]*pb.PodState, podName string) bool {
+	p, ok := workload[podName]
+	return ok && IsEligible(FromPodState(p))
+}
+
 // ReadyCondition returns the pod's Ready condition, or nil if it has none.
 func ReadyCondition(pod *corev1.Pod) *corev1.PodCondition {
 	for i := range pod.Status.Conditions {

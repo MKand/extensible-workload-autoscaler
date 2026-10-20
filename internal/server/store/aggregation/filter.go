@@ -13,14 +13,7 @@ type SeriesFilter func(workload map[string]*pb.PodState, agg *SeriesAggregate) b
 // NonEligiblePodSeriesFilter reports whether an aggregate belongs to a pod that's not
 // ready and should be ignored.
 func NonEligiblePodSeriesFilter(workload map[string]*pb.PodState, agg *SeriesAggregate) bool {
-	if agg.podName == "" {
-		return false
-	}
-	p, ok := workload[agg.podName]
-	if !ok {
-		return true
-	}
-	return !podutil.IsEligible(podutil.FromPodState(p))
+	return agg.podName != "" && !podutil.IsPodEligible(workload, agg.podName)
 }
 
 // CreateLabelSeriesFilter returns a filter reporting whether an aggregate does not

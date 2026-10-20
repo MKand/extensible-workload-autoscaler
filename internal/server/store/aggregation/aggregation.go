@@ -124,8 +124,14 @@ func (a *DimensionalSeriesAggregation) Reduce(series iter.Seq[*model.Series], wo
 // (e.g. CPU or memory usage).
 func CreateSeriesAggregation(def *pb.MetricDefinition, resourceName, podName, containerName string) SeriesAggregation {
 	seriesFilters := []SeriesFilter{
-		NonEligiblePodSeriesFilter,               // Drops series associated with non-eligible pods
 		CreateLabelSeriesFilter(def.GetFilter()), // Apply label filters
+	}
+	// The metrics that include the startup samples consider the series of
+	// every pod, even once the workload no longer reports it, until the
+	// series are garbage collected: the VPA doesn't forget the usage of the
+	// pods that terminated either.
+	if def.GetStartupSamples() != pb.MetricDefinition_INCLUDE {
+		seriesFilters = append(seriesFilters, NonEligiblePodSeriesFilter) // Drops series associated with non-eligible pods
 	}
 
 	labelsReducer := SumSeriesReducer

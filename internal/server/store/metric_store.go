@@ -118,7 +118,9 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, workload map[string]*pb.P
 	// told apart once in the workload-wide histogram. Eligibility can also
 	// change after a sample was ingested (e.g. the pod starts terminating),
 	// which the aggregation handles by filtering the series.
-	if podName != "" && !podutil.IsPodEligible(workload, podName) {
+	// The metrics that include the startup samples only drop the samples of
+	// the pods unknown to the workload.
+	if podName != "" && !isPodIngestible(def, workload, podName) {
 		return nil
 	}
 
@@ -223,7 +225,10 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 		if metricSeries.isEmpty() {
 			continue
 		}
-		series := filterInitializingCPU(maps.Values(metricSeries.Series), workload, now)
+		series := maps.Values(metricSeries.Series)
+		if def.GetStartupSamples() != pb.MetricDefinition_INCLUDE {
+			series = filterInitializingCPU(series, workload, now)
+		}
 		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(series, workload))
 	}
 
@@ -234,6 +239,18 @@ func (ms *MetricStore) Calculate(policy *pb.Policy, defs []*pb.MetricDefinition,
 	}
 
 	return cm
+}
+
+// isPodIngestible reports whether the samples of the named pod should be
+// ingested for the given metric: the pod must be eligible (see
+// podutil.IsPodEligible), or only known to the workload if the metric includes
+// the startup samples.
+func isPodIngestible(def *pb.MetricDefinition, workload map[string]*pb.PodState, podName string) bool {
+	if def.GetStartupSamples() == pb.MetricDefinition_INCLUDE {
+		_, ok := workload[podName]
+		return ok
+	}
+	return podutil.IsPodEligible(workload, podName)
 }
 
 // filterInitializingCPU drops the CPU usage series of the pods still in their

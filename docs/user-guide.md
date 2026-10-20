@@ -38,6 +38,15 @@ single number, known as a *control metric*.
 In practice, this aggregation step typically takes the form of an `aggregation`
 field with values such as "Avg" to compute the average across all the pods.
 
+By default, only the pods that have been ready and are not being deleted take
+part in the aggregation, and the CPU usage of a pod is ignored for the first
+minutes of its life until it has been ready for long enough for a full sample to
+be measured, as the Horizontal Pod Autoscaler does. This keeps the erratic usage
+of the pods that start up or shut down out of the scaling decisions. Metrics
+that must see it, e.g. to size the pods for their startup as the Vertical Pod
+Autoscaler does, can set `startupSamples: Include` to consider the samples of
+every pod of the workload from the moment it runs.
+
 ### Defining Recommenders
 
 Recommenders read metrics and provide scaling recommendations. For example, they

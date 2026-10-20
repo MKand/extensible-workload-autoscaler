@@ -120,6 +120,15 @@ type MetricDefinition struct {
 	// "PodContainer" reports one value per pod and per container.
 	// "Container" reports one value per container.
 	Scope string `json:"scope,omitempty"`
+
+	// StartupSamples defines whether the samples of a pod are considered while
+	// it starts up and shuts down.
+	// "Exclude" (default) only considers the samples of the pods that have
+	// been ready, are not being deleted, and for CPU usage, that have been
+	// ready for long enough for a full sample to be measured, as the HPA does.
+	// "Include" considers the samples of every pod of the workload from the
+	// moment it runs, as the VPA does, e.g. to size the pods for their startup.
+	StartupSamples string `json:"startupSamples,omitempty"`
 }
 
 type Gauge struct {

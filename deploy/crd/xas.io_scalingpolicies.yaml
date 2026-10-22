@@ -131,6 +131,16 @@ spec:
                       required:
                       - percentile
                       type: object
+                    eligibility:
+                      description: Eligibility defines which pod samples the metric
+                        considers.
+                      properties:
+                        startupSamples:
+                          description: |-
+                            StartupSamples considers the samples emitted during the pod startup or
+                            shutdown, which are ignored by default.
+                          type: boolean
+                      type: object
                     filter:
                       additionalProperties:
                         type: string

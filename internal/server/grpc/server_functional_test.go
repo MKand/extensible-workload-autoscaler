@@ -1015,9 +1015,85 @@ func TestIngestMetrics_IgnoresSamplesOfPodsNotReportedYet(t *testing.T) {
 	}
 }
 
+// A metric whose startup samples are eligible considers the samples of every
+// pod of the workload, whatever its readiness or deletion state, as the VPA
+// does. Only the pods the workload doesn't report are ignored.
+func TestGetControlMetrics_StartupSamples(t *testing.T) {
+	clk := &clock.FakeClock{CurrentTime: time.Unix(10000, 0)}
+	memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)
+	defer cleanup()
+	ctx := context.Background()
+
+	id := pb.PolicyId_builder{ClusterName: proto.String("c1"), Namespace: proto.String("ns"), Name: proto.String("p1")}.Build()
+	client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+		Policy: pb.Policy_builder{
+			Id: id,
+			Metrics: []*pb.MetricDefinition{
+				pb.MetricDefinition_builder{Name: proto.String("m_exclude"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_include"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+				// The global decaying distributions drop the samples when
+				// they are ingested, rather than filtering the series.
+				pb.MetricDefinition_builder{Name: proto.String("m_include_max"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), DecayingDistribution: pb.DecayingDistribution_builder{HalfLife: durationpb.New(time.Hour), BucketSize: proto.String("1"), Percentile: proto.String("p100")}.Build()}.Build(),
+			},
+		}.Build(),
+	}.Build())
+
+	start := timestamppb.New(time.Unix(1000, 0))
+	at := func(offset time.Duration) *timestamppb.Timestamp {
+		return timestamppb.New(time.Unix(1000, 0).Add(offset))
+	}
+	client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+		Id: id,
+		Workload: pb.Workload_builder{Pods: []*pb.PodState{
+			pb.PodState_builder{Name: proto.String("pod-ready"), Phase: proto.String("Running"), StartTime: start, IsReady: proto.Bool(true), ReadyLastTransitionTime: at(10 * time.Second)}.Build(),
+			// Still starting up.
+			pb.PodState_builder{Name: proto.String("pod-never-ready"), Phase: proto.String("Running"), StartTime: start, IsReady: proto.Bool(false), ReadyLastTransitionTime: at(time.Second)}.Build(),
+			// Shutting down.
+			pb.PodState_builder{Name: proto.String("pod-terminating"), Phase: proto.String("Running"), StartTime: start, IsReady: proto.Bool(true), ReadyLastTransitionTime: at(10 * time.Second), DeletionTimestamp: at(2 * time.Hour)}.Build(),
+		}}.Build(),
+	}.Build())
+
+	ts := clk.Now().Unix()
+	batch := func(pod string, value float64) *pb.MetricBatch {
+		return pb.MetricBatch_builder{PodName: proto.String(pod), Samples: []*pb.MetricSample{
+			pb.MetricSample_builder{Name: proto.String("m_exclude"), Value: proto.Float64(value)}.Build(),
+			pb.MetricSample_builder{Name: proto.String("m_include"), Value: proto.Float64(value)}.Build(),
+			pb.MetricSample_builder{Name: proto.String("m_include_max"), Value: proto.Float64(value)}.Build(),
+		}}.Build()
+	}
+	client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+		ClusterName: proto.String("c1"), Timestamp: timestamppb.New(time.Unix(ts, 0)),
+		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+			Namespace: proto.String("ns"), Name: proto.String("p1"),
+			Batches: []*pb.MetricBatch{
+				batch("pod-ready", 1),
+				batch("pod-never-ready", 10),
+				batch("pod-terminating", 100),
+				batch("pod-unknown", 1000), // Always ignored
+			},
+		}.Build()},
+	}.Build())
+
+	memStore.CalculateAll()
+	cm, _ := client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{Id: id}.Build())
+
+	wantValues := map[string]float64{
+		"m_exclude":     1,
+		"m_include":     111,
+		"m_include_max": 101, // The upper bound of the bucket of 100.
+	}
+	if diff := cmp.Diff(wantValues, cm.GetValues()); diff != "" {
+		t.Errorf("ControlMetrics.Values mismatch (-want +got):\n%s", diff)
+	}
+	// The replica count isn't affected: it is a property of the workload.
+	if cm.GetReadyReplicas() != 1 {
+		t.Errorf("ReadyReplicas = %d, want 1", cm.GetReadyReplicas())
+	}
+}
+
 // During the CPU initialization period, a pod's CPU sample only counts once it
-// was entirely measured after the pod became ready. Other resources are not
-// affected.
+// was entirely measured after the pod became ready. Other resources, and the
+// metrics whose startup samples are eligible, are not affected.
 func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 	// The pod started at t=1000 and became ready at t=1060. Each series gets
 	// two samples 30s apart: the Server infers from them that the second one
@@ -1066,6 +1142,7 @@ func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 					Id: id,
 					Metrics: []*pb.MetricDefinition{
 						pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+						pb.MetricDefinition_builder{Name: proto.String("cpu_include"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
 						pb.MetricDefinition_builder{Name: proto.String("mem"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
 					},
 				}.Build(),
@@ -1091,6 +1168,7 @@ func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 							PodName: proto.String("p1"), ContainerName: proto.String("c"),
 							Samples: []*pb.MetricSample{
 								pb.MetricSample_builder{Name: proto.String("cpu"), ResourceName: proto.String("cpu"), Value: proto.Float64(2), Timestamp: sampleTS}.Build(),
+								pb.MetricSample_builder{Name: proto.String("cpu_include"), ResourceName: proto.String("cpu"), Value: proto.Float64(2), Timestamp: sampleTS}.Build(),
 								pb.MetricSample_builder{Name: proto.String("mem"), ResourceName: proto.String("memory"), Value: proto.Float64(512), Timestamp: sampleTS}.Build(),
 							},
 						}.Build()},
@@ -1106,7 +1184,7 @@ func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 				t.Fatalf("GetControlMetrics() = %v", err)
 			}
 
-			wantValues := map[string]float64{"mem": 512}
+			wantValues := map[string]float64{"cpu_include": 2, "mem": 512}
 			if tc.wantCPUReport {
 				wantValues["cpu"] = tc.wantCPU
 			}

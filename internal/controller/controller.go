@@ -469,6 +469,11 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 			Filter:   m.Filter,
 			Scope:    proto.String(m.Scope),
 		}.Build()
+		if m.Eligibility != nil {
+			pm.SetEligibility(pb.MetricDefinition_Eligibility_builder{
+				StartupSamples: proto.Bool(m.Eligibility.StartupSamples),
+			}.Build())
+		}
 
 		// Sync Intents
 		if m.Gauge != nil {

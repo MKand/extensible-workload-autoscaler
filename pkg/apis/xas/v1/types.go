@@ -120,6 +120,16 @@ type MetricDefinition struct {
 	// "PodContainer" reports one value per pod and per container.
 	// "Container" reports one value per container.
 	Scope string `json:"scope,omitempty"`
+
+	// Eligibility defines which pod samples the metric considers.
+	Eligibility *Eligibility `json:"eligibility,omitempty"`
+}
+
+// Eligibility defines which pod samples a metric considers.
+type Eligibility struct {
+	// StartupSamples considers the samples emitted during the pod startup or
+	// shutdown, which are ignored by default.
+	StartupSamples bool `json:"startupSamples,omitempty"`
 }
 
 type Gauge struct {

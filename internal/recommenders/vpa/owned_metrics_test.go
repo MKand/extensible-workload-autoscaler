@@ -27,12 +27,16 @@ func decaying(name, typ, percentile string, halfLife time.Duration, bucketSize s
 	}.Build()
 }
 
+// defaultOwned returns an owned metric definition with the defaults, which
+// consider the startup samples.
 func defaultOwned(resource, slotSuffix, percentile string) *pb.MetricDefinition {
 	bucket := defaultCPUBucket
 	if resource == "memory" {
 		bucket = defaultMemBucket
 	}
-	return decaying(resource+slotSuffix, resource, percentile, defaultHalfLife, bucket)
+	m := decaying(resource+slotSuffix, resource, percentile, defaultHalfLife, bucket)
+	m.SetEligibility(pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build())
+	return m
 }
 
 func TestOwnedMetrics(t *testing.T) {
@@ -50,19 +54,24 @@ func TestOwnedMetrics(t *testing.T) {
 		Params:   map[string]string{"query": "container_cpu"},
 		Filter:   map[string]string{"env": "prod"},
 		Scope:    proto.String("PodContainer"),
+		// Explicitly without the startup samples, unlike the defaults.
+		Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(false)}.Build(),
 		DecayingDistribution: pb.DecayingDistribution_builder{
 			Percentile: proto.String("p95"),
 			HalfLife:   durationpb.New(12 * time.Hour),
 			BucketSize: proto.String("0.01"),
 		}.Build(),
 	}.Build()
+	// The owned metrics copied from the user's metric follow its
+	// eligibility setting.
 	copied := func(name, percentile string) *pb.MetricDefinition {
 		return pb.MetricDefinition_builder{
-			Name:     proto.String(name),
-			Provider: proto.String("prometheus"),
-			Params:   map[string]string{"query": "container_cpu"},
-			Filter:   map[string]string{"env": "prod"},
-			Scope:    proto.String("PodContainer"),
+			Name:        proto.String(name),
+			Provider:    proto.String("prometheus"),
+			Params:      map[string]string{"query": "container_cpu"},
+			Filter:      map[string]string{"env": "prod"},
+			Scope:       proto.String("PodContainer"),
+			Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(false)}.Build(),
 			DecayingDistribution: pb.DecayingDistribution_builder{
 				Percentile: proto.String(percentile),
 				HalfLife:   durationpb.New(12 * time.Hour),

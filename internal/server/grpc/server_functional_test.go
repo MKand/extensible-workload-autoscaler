@@ -1015,10 +1015,10 @@ func TestIngestMetrics_IgnoresSamplesOfPodsNotReportedYet(t *testing.T) {
 	}
 }
 
-// A metric that includes the startup samples considers the samples of every
+// A metric whose startup samples are eligible considers the samples of every
 // pod of the workload, whatever its readiness or deletion state, as the VPA
 // does. Only the pods the workload doesn't report are ignored.
-func TestGetControlMetrics_StartupSamplesInclude(t *testing.T) {
+func TestGetControlMetrics_StartupSamples(t *testing.T) {
 	clk := &clock.FakeClock{CurrentTime: time.Unix(10000, 0)}
 	memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)
 	defer cleanup()
@@ -1030,10 +1030,10 @@ func TestGetControlMetrics_StartupSamplesInclude(t *testing.T) {
 			Id: id,
 			Metrics: []*pb.MetricDefinition{
 				pb.MetricDefinition_builder{Name: proto.String("m_exclude"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
-				pb.MetricDefinition_builder{Name: proto.String("m_include"), StartupSamples: pb.MetricDefinition_INCLUDE.Enum(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_include"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
 				// The global decaying distributions drop the samples when
 				// they are ingested, rather than filtering the series.
-				pb.MetricDefinition_builder{Name: proto.String("m_include_max"), StartupSamples: pb.MetricDefinition_INCLUDE.Enum(), DecayingDistribution: pb.DecayingDistribution_builder{HalfLife: durationpb.New(time.Hour), BucketSize: proto.String("1"), Percentile: proto.String("p100")}.Build()}.Build(),
+				pb.MetricDefinition_builder{Name: proto.String("m_include_max"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), DecayingDistribution: pb.DecayingDistribution_builder{HalfLife: durationpb.New(time.Hour), BucketSize: proto.String("1"), Percentile: proto.String("p100")}.Build()}.Build(),
 			},
 		}.Build(),
 	}.Build())
@@ -1093,7 +1093,7 @@ func TestGetControlMetrics_StartupSamplesInclude(t *testing.T) {
 
 // During the CPU initialization period, a pod's CPU sample only counts once it
 // was entirely measured after the pod became ready. Other resources, and the
-// metrics that include the startup samples, are not affected.
+// metrics whose startup samples are eligible, are not affected.
 func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 	// The pod started at t=1000 and became ready at t=1060. Each series gets
 	// two samples 30s apart: the Server infers from them that the second one
@@ -1142,7 +1142,7 @@ func TestGetControlMetrics_CPUInitializationPeriod(t *testing.T) {
 					Id: id,
 					Metrics: []*pb.MetricDefinition{
 						pb.MetricDefinition_builder{Name: proto.String("cpu"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
-						pb.MetricDefinition_builder{Name: proto.String("cpu_include"), StartupSamples: pb.MetricDefinition_INCLUDE.Enum(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+						pb.MetricDefinition_builder{Name: proto.String("cpu_include"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
 						pb.MetricDefinition_builder{Name: proto.String("mem"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
 					},
 				}.Build(),

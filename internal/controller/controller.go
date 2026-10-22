@@ -463,13 +463,17 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 	var metrics []*pb.MetricDefinition
 	for _, m := range p.Spec.Metrics {
 		pm := pb.MetricDefinition_builder{
-			Name:           proto.String(m.Name),
-			Provider:       proto.String(m.Provider),
-			Params:         m.Params,
-			Filter:         m.Filter,
-			Scope:          proto.String(m.Scope),
-			StartupSamples: startupSamples(m.StartupSamples),
+			Name:     proto.String(m.Name),
+			Provider: proto.String(m.Provider),
+			Params:   m.Params,
+			Filter:   m.Filter,
+			Scope:    proto.String(m.Scope),
 		}.Build()
+		if m.Eligibility != nil {
+			pm.SetEligibility(pb.MetricDefinition_Eligibility_builder{
+				StartupSamples: proto.Bool(m.Eligibility.StartupSamples),
+			}.Build())
+		}
 
 		// Sync Intents
 		if m.Gauge != nil {
@@ -579,19 +583,6 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 
 	_, err = c.grpcClient.UpdatePolicy(ctx, updatePolicyRequest)
 	return err
-}
-
-// startupSamples converts a MetricDefinition.StartupSamples value to the
-// protocol's enum. Unknown values are unspecified, i.e. the default.
-func startupSamples(s string) *pb.MetricDefinition_StartupSamples {
-	switch s {
-	case "Exclude":
-		return pb.MetricDefinition_EXCLUDE.Enum()
-	case "Include":
-		return pb.MetricDefinition_INCLUDE.Enum()
-	default:
-		return pb.MetricDefinition_STARTUP_SAMPLES_UNSPECIFIED.Enum()
-	}
 }
 
 func (c *Controller) enqueuePolicy(obj interface{}) {

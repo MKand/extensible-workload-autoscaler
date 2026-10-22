@@ -111,10 +111,10 @@ type config struct {
 
 // OwnedMetrics returns the metrics VPA owns: one per slot the user didn't
 // configure, for each controlled resource. Owned metrics copy the source
-// (provider, params, filter, scope) and the half-life and bucket size of the
-// user's metrics for the same resource, if any, so all the metrics of a
-// resource share them; otherwise they use the defaults, which include the
-// samples of the pods that start up or shut down, as the VPA does.
+// (provider, params, filter, scope, eligibility) and the half-life and bucket
+// size of the user's metrics for the same resource, if any, so all the metrics
+// of a resource share them; otherwise they use the defaults, which consider
+// the samples of the pods that start up or shut down, as the VPA does.
 //
 // It returns an error if the configuration is invalid, including when a
 // configured metric isn't defined in the policy, isn't a decaying
@@ -170,7 +170,7 @@ func (r *VPARecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetri
 				Params:   map[string]string{"type": res.name},
 				Scope:    proto.String(defaultScope),
 				// Size the pods for their whole life, startup included.
-				StartupSamples: pb.MetricDefinition_INCLUDE.Enum(),
+				Eligibility: pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build(),
 				DecayingDistribution: pb.DecayingDistribution_builder{
 					HalfLife:   durationpb.New(defaultHalfLife),
 					BucketSize: proto.String(res.defaultBucketSize),
@@ -185,12 +185,12 @@ func (r *VPARecommender) OwnedMetrics(def *pb.RecommenderDefinition, policyMetri
 			}
 			tdd := template.GetDecayingDistribution()
 			owned = append(owned, pb.MetricDefinition_builder{
-				Name:           proto.String(ref.name),
-				Provider:       proto.String(template.GetProvider()),
-				Params:         maps.Clone(template.GetParams()),
-				Filter:         maps.Clone(template.GetFilter()),
-				Scope:          proto.String(template.GetScope()),
-				StartupSamples: template.GetStartupSamples().Enum(),
+				Name:        proto.String(ref.name),
+				Provider:    proto.String(template.GetProvider()),
+				Params:      maps.Clone(template.GetParams()),
+				Filter:      maps.Clone(template.GetFilter()),
+				Scope:       proto.String(template.GetScope()),
+				Eligibility: proto.CloneOf(template.GetEligibility()),
 				DecayingDistribution: pb.DecayingDistribution_builder{
 					HalfLife:   proto.CloneOf(tdd.GetHalfLife()),
 					BucketSize: proto.String(tdd.GetBucketSize()),

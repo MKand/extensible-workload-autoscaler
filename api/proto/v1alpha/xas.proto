@@ -195,23 +195,18 @@ message MetricDefinition {
 
   // The scope of the metric: "Global" (default), "Pod", "PodContainer", or "Container".
   string scope = 14;
-  // StartupSamples defines whether the samples of a pod are considered while
-  // it starts up and shuts down.
-  enum StartupSamples {
-    // Same as EXCLUDE.
-    STARTUP_SAMPLES_UNSPECIFIED = 0;
-    // Only the samples of the eligible pods are considered: the pods that
-    // have been ready, are not being deleted, and for CPU usage, that have
-    // been ready for long enough for a full sample to be measured, as the HPA
-    // does.
-    EXCLUDE = 1;
-    // The samples of every pod of the workload are considered from the moment
-    // it runs, as the VPA does.
-    INCLUDE = 2;
+  // Eligibility defines which pod samples a metric considers.
+  message Eligibility {
+    // Consider the samples emitted during the pod startup or shutdown, i.e.
+    // the samples of every pod of the workload from the moment it runs, as
+    // the VPA does. By default only the samples of the eligible pods are
+    // considered: the pods that have been ready and are not being deleted,
+    // and for CPU usage, that have been ready for long enough for a full
+    // sample to be measured, as the HPA does.
+    bool startup_samples = 1;
   }
-  // Whether the samples of a pod are considered while it starts up and shuts
-  // down.
-  StartupSamples startup_samples = 16;
+  // Which pod samples the metric considers.
+  Eligibility eligibility = 16;
 }
 
 message Gauge {

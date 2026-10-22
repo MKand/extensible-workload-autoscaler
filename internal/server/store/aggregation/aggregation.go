@@ -126,11 +126,11 @@ func CreateSeriesAggregation(def *pb.MetricDefinition, resourceName, podName, co
 	seriesFilters := []SeriesFilter{
 		CreateLabelSeriesFilter(def.GetFilter()), // Apply label filters
 	}
-	// The metrics that include the startup samples consider the series of
+	// The metrics whose startup samples are eligible consider the series of
 	// every pod, even once the workload no longer reports it, until the
 	// series are garbage collected: the VPA doesn't forget the usage of the
 	// pods that terminated either.
-	if def.GetStartupSamples() != pb.MetricDefinition_INCLUDE {
+	if !def.GetEligibility().GetStartupSamples() {
 		seriesFilters = append(seriesFilters, NonEligiblePodSeriesFilter) // Drops series associated with non-eligible pods
 	}
 

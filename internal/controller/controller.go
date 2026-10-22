@@ -470,9 +470,13 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 			Scope:    proto.String(m.Scope),
 		}.Build()
 		if m.Eligibility != nil {
-			pm.SetEligibility(pb.MetricDefinition_Eligibility_builder{
+			e := pb.MetricDefinition_Eligibility_builder{
 				StartupSamples: proto.Bool(m.Eligibility.StartupSamples),
-			}.Build())
+			}.Build()
+			if m.Eligibility.StartupGracePeriod != nil {
+				e.SetStartupGracePeriod(durationpb.New(m.Eligibility.StartupGracePeriod.Duration))
+			}
+			pm.SetEligibility(e)
 		}
 
 		// Sync Intents

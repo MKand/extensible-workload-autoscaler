@@ -160,6 +160,30 @@ func TestIsCPUSampleEligible(t *testing.T) {
 	}
 }
 
+func TestIsPastStartupGracePeriod(t *testing.T) {
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	pod := Lifecycle{Phase: corev1.PodRunning, StartTime: start, Ready: true, ReadyLastTransitionTime: start.Add(time.Minute)}
+	grace := 10 * time.Minute
+	tests := []struct {
+		name string
+		l    Lifecycle
+		now  time.Time
+		want bool
+	}{
+		{name: "within the grace period", l: pod, now: start.Add(grace - time.Second), want: false},
+		{name: "at the end of the grace period", l: pod, now: start.Add(grace), want: true},
+		{name: "past the grace period", l: pod, now: start.Add(time.Hour), want: true},
+		{name: "no start time", l: Lifecycle{Ready: true}, now: start.Add(time.Hour), want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsPastStartupGracePeriod(tc.l, grace, tc.now); got != tc.want {
+				t.Errorf("IsPastStartupGracePeriod(%+v, %v, %v) = %v, want %v", tc.l, grace, tc.now, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestIsPodEligible(t *testing.T) {
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	workload := map[string]*pb.PodState{

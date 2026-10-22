@@ -91,6 +91,13 @@ func IsCPUSampleEligible(l Lifecycle, sampleTime time.Time, window time.Duration
 	return l.Ready && !sampleTime.Before(l.ReadyLastTransitionTime.Add(window))
 }
 
+// IsPastStartupGracePeriod reports whether, at time now, a pod in the given
+// lifecycle state started at least gracePeriod ago. A pod without a start time
+// has not been acknowledged by the kubelet yet, and is never past it.
+func IsPastStartupGracePeriod(l Lifecycle, gracePeriod time.Duration, now time.Time) bool {
+	return !l.StartTime.IsZero() && !now.Before(l.StartTime.Add(gracePeriod))
+}
+
 // IsPodEligible reports whether the metrics of the named pod should be
 // considered, given the workload (the pods reported to the Server, keyed by
 // name). A pod the workload does not know is not eligible.

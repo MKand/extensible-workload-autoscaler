@@ -130,6 +130,11 @@ type Eligibility struct {
 	// StartupSamples considers the samples emitted during the pod startup or
 	// shutdown, which are ignored by default.
 	StartupSamples bool `json:"startupSamples,omitempty"`
+
+	// StartupGracePeriod ignores the samples emitted by a pod until this long
+	// after it started, on top of the default rules, e.g. to ignore the usage
+	// of a warm-up. Off by default. Incompatible with StartupSamples.
+	StartupGracePeriod *metav1.Duration `json:"startupGracePeriod,omitempty"`
 }
 
 type Gauge struct {

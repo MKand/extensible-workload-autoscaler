@@ -119,7 +119,10 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, workload map[string]*pb.P
 	// which the aggregation handles by filtering the series.
 	// The metrics whose startup samples are eligible only drop the samples
 	// of the pods unknown to the workload.
-	if podName != "" && !isPodIngestible(def, workload, podName) {
+	// The metrics with a startup grace period also drop the samples of the
+	// pods that started less than that long ago. That rule only needs to be
+	// applied here: unlike eligibility, it can't revert once it holds.
+	if podName != "" && !isPodIngestible(def, workload, podName, ingestTime) {
 		return nil
 	}
 
@@ -237,15 +240,22 @@ func (ms *MetricStore) calculate(defs []*pb.MetricDefinition, workload map[strin
 }
 
 // isPodIngestible reports whether the samples of the named pod should be
-// ingested for the given metric: the pod must be eligible (see
-// podutil.IsPodEligible), or only known to the workload if the metric's
-// startup samples are eligible.
-func isPodIngestible(def *pb.MetricDefinition, workload map[string]*pb.PodState, podName string) bool {
-	if def.GetEligibility().GetStartupSamples() {
+// ingested at time now for the given metric: the pod must be eligible (see
+// podutil.IsPodEligible) and past the metric's startup grace period, if any,
+// or only known to the workload if the metric's startup samples are eligible.
+func isPodIngestible(def *pb.MetricDefinition, workload map[string]*pb.PodState, podName string, now time.Time) bool {
+	eligibility := def.GetEligibility()
+	if eligibility.GetStartupSamples() {
 		_, ok := workload[podName]
 		return ok
 	}
-	return podutil.IsPodEligible(workload, podName)
+	if !podutil.IsPodEligible(workload, podName) {
+		return false
+	}
+	if grace := eligibility.GetStartupGracePeriod().AsDuration(); grace > 0 {
+		return podutil.IsPastStartupGracePeriod(podutil.FromPodState(workload[podName]), grace, now)
+	}
+	return true
 }
 
 // filterInitializingCPU drops the CPU usage series of the pods still in their

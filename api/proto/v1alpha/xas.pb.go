@@ -5623,12 +5623,13 @@ func (b0 IngestMetricsResponse_builder) Build() *IngestMetricsResponse {
 
 // Eligibility defines which pod samples a metric considers.
 type MetricDefinition_Eligibility struct {
-	state                     protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_StartupSamples bool                   `protobuf:"varint,1,opt,name=startup_samples,json=startupSamples"`
-	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
-	XXX_presence              [1]uint32
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state                         protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_StartupSamples     bool                   `protobuf:"varint,1,opt,name=startup_samples,json=startupSamples"`
+	xxx_hidden_StartupGracePeriod *durationpb.Duration   `protobuf:"bytes,2,opt,name=startup_grace_period,json=startupGracePeriod"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *MetricDefinition_Eligibility) Reset() {
@@ -5663,9 +5664,20 @@ func (x *MetricDefinition_Eligibility) GetStartupSamples() bool {
 	return false
 }
 
+func (x *MetricDefinition_Eligibility) GetStartupGracePeriod() *durationpb.Duration {
+	if x != nil {
+		return x.xxx_hidden_StartupGracePeriod
+	}
+	return nil
+}
+
 func (x *MetricDefinition_Eligibility) SetStartupSamples(v bool) {
 	x.xxx_hidden_StartupSamples = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *MetricDefinition_Eligibility) SetStartupGracePeriod(v *durationpb.Duration) {
+	x.xxx_hidden_StartupGracePeriod = v
 }
 
 func (x *MetricDefinition_Eligibility) HasStartupSamples() bool {
@@ -5675,9 +5687,20 @@ func (x *MetricDefinition_Eligibility) HasStartupSamples() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *MetricDefinition_Eligibility) HasStartupGracePeriod() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_StartupGracePeriod != nil
+}
+
 func (x *MetricDefinition_Eligibility) ClearStartupSamples() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_StartupSamples = false
+}
+
+func (x *MetricDefinition_Eligibility) ClearStartupGracePeriod() {
+	x.xxx_hidden_StartupGracePeriod = nil
 }
 
 type MetricDefinition_Eligibility_builder struct {
@@ -5690,6 +5713,10 @@ type MetricDefinition_Eligibility_builder struct {
 	// and for CPU usage, that have been ready for long enough for a full
 	// sample to be measured, as the HPA does.
 	StartupSamples *bool
+	// Ignore the samples emitted by a pod until this long after it started,
+	// on top of the default rules. Unset or zero means no grace period.
+	// Incompatible with startup_samples.
+	StartupGracePeriod *durationpb.Duration
 }
 
 func (b0 MetricDefinition_Eligibility_builder) Build() *MetricDefinition_Eligibility {
@@ -5697,9 +5724,10 @@ func (b0 MetricDefinition_Eligibility_builder) Build() *MetricDefinition_Eligibi
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.StartupSamples != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_StartupSamples = *b.StartupSamples
 	}
+	x.xxx_hidden_StartupGracePeriod = b.StartupGracePeriod
 	return m0
 }
 
@@ -5749,7 +5777,7 @@ const file_xas_proto_rawDesc = "" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
 	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1c\n" +
-	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\xec\x05\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\xba\x06\n" +
 	"\x10MetricDefinition\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
 	"\x10recommender_name\x18\x0f \x01(\tR\x0frecommenderName\x12\x1a\n" +
@@ -5768,9 +5796,10 @@ const file_xas_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
 	"\vFilterEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a6\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a\x83\x01\n" +
 	"\vEligibility\x12'\n" +
-	"\x0fstartup_samples\x18\x01 \x01(\bR\x0estartupSamples\")\n" +
+	"\x0fstartup_samples\x18\x01 \x01(\bR\x0estartupSamples\x12K\n" +
+	"\x14startup_grace_period\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x12startupGracePeriod\")\n" +
 	"\x05Gauge\x12 \n" +
 	"\vaggregation\x18\x01 \x01(\tR\vaggregation\"[\n" +
 	"\x04Rate\x121\n" +
@@ -6111,40 +6140,41 @@ var file_xas_proto_depIdxs = []int32{
 	41, // 69: xas.v1alpha.MetricSample.histogram:type_name -> xas.v1alpha.Histogram
 	61, // 70: xas.v1alpha.Histogram.buckets:type_name -> xas.v1alpha.Histogram.BucketsEntry
 	8,  // 71: xas.v1alpha.Policy.RecommenderMetricsEntry.value:type_name -> xas.v1alpha.MetricDefinitionList
-	25, // 72: xas.v1alpha.GetControlMetricsResponse.RecommenderControlMetricsEntry.value:type_name -> xas.v1alpha.ControlMetrics
-	23, // 73: xas.v1alpha.ContainerMetrics.ContainerMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
-	23, // 74: xas.v1alpha.ControlMetrics.PodMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
-	24, // 75: xas.v1alpha.ControlMetrics.PodContainerMetricsEntry.value:type_name -> xas.v1alpha.ContainerMetrics
-	25, // 76: xas.v1alpha.WatchControlMetricsResponse.RecommenderControlMetricsEntry.value:type_name -> xas.v1alpha.ControlMetrics
-	3,  // 77: xas.v1alpha.XASServer.GetPolicy:input_type -> xas.v1alpha.GetPolicyRequest
-	1,  // 78: xas.v1alpha.XASServer.CreatePolicy:input_type -> xas.v1alpha.CreatePolicyRequest
-	2,  // 79: xas.v1alpha.XASServer.UpdatePolicy:input_type -> xas.v1alpha.UpdatePolicyRequest
-	4,  // 80: xas.v1alpha.XASServer.DeletePolicy:input_type -> xas.v1alpha.DeletePolicyRequest
-	5,  // 81: xas.v1alpha.XASServer.ListPolicies:input_type -> xas.v1alpha.ListPoliciesRequest
-	16, // 82: xas.v1alpha.XASServer.UpdateWorkload:input_type -> xas.v1alpha.UpdateWorkloadRequest
-	21, // 83: xas.v1alpha.XASServer.GetControlMetrics:input_type -> xas.v1alpha.GetControlMetricsRequest
-	26, // 84: xas.v1alpha.XASServer.WatchControlMetrics:input_type -> xas.v1alpha.WatchControlMetricsRequest
-	17, // 85: xas.v1alpha.XASServer.GetWorkload:input_type -> xas.v1alpha.GetWorkloadRequest
-	28, // 86: xas.v1alpha.XASServer.UpdateRecommenderState:input_type -> xas.v1alpha.UpdateRecommenderStateRequest
-	34, // 87: xas.v1alpha.XASServer.GetRecommendation:input_type -> xas.v1alpha.GetRecommendationRequest
-	37, // 88: xas.v1alpha.XASServer.IngestMetrics:input_type -> xas.v1alpha.IngestMetricsRequest
-	7,  // 89: xas.v1alpha.XASServer.GetPolicy:output_type -> xas.v1alpha.Policy
-	7,  // 90: xas.v1alpha.XASServer.CreatePolicy:output_type -> xas.v1alpha.Policy
-	7,  // 91: xas.v1alpha.XASServer.UpdatePolicy:output_type -> xas.v1alpha.Policy
-	64, // 92: xas.v1alpha.XASServer.DeletePolicy:output_type -> google.protobuf.Empty
-	6,  // 93: xas.v1alpha.XASServer.ListPolicies:output_type -> xas.v1alpha.ListPoliciesResponse
-	18, // 94: xas.v1alpha.XASServer.UpdateWorkload:output_type -> xas.v1alpha.Workload
-	22, // 95: xas.v1alpha.XASServer.GetControlMetrics:output_type -> xas.v1alpha.GetControlMetricsResponse
-	27, // 96: xas.v1alpha.XASServer.WatchControlMetrics:output_type -> xas.v1alpha.WatchControlMetricsResponse
-	18, // 97: xas.v1alpha.XASServer.GetWorkload:output_type -> xas.v1alpha.Workload
-	32, // 98: xas.v1alpha.XASServer.UpdateRecommenderState:output_type -> xas.v1alpha.RecommenderState
-	35, // 99: xas.v1alpha.XASServer.GetRecommendation:output_type -> xas.v1alpha.GetRecommendationResponse
-	42, // 100: xas.v1alpha.XASServer.IngestMetrics:output_type -> xas.v1alpha.IngestMetricsResponse
-	89, // [89:101] is the sub-list for method output_type
-	77, // [77:89] is the sub-list for method input_type
-	77, // [77:77] is the sub-list for extension type_name
-	77, // [77:77] is the sub-list for extension extendee
-	0,  // [0:77] is the sub-list for field type_name
+	62, // 72: xas.v1alpha.MetricDefinition.Eligibility.startup_grace_period:type_name -> google.protobuf.Duration
+	25, // 73: xas.v1alpha.GetControlMetricsResponse.RecommenderControlMetricsEntry.value:type_name -> xas.v1alpha.ControlMetrics
+	23, // 74: xas.v1alpha.ContainerMetrics.ContainerMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
+	23, // 75: xas.v1alpha.ControlMetrics.PodMetricsEntry.value:type_name -> xas.v1alpha.MetricValues
+	24, // 76: xas.v1alpha.ControlMetrics.PodContainerMetricsEntry.value:type_name -> xas.v1alpha.ContainerMetrics
+	25, // 77: xas.v1alpha.WatchControlMetricsResponse.RecommenderControlMetricsEntry.value:type_name -> xas.v1alpha.ControlMetrics
+	3,  // 78: xas.v1alpha.XASServer.GetPolicy:input_type -> xas.v1alpha.GetPolicyRequest
+	1,  // 79: xas.v1alpha.XASServer.CreatePolicy:input_type -> xas.v1alpha.CreatePolicyRequest
+	2,  // 80: xas.v1alpha.XASServer.UpdatePolicy:input_type -> xas.v1alpha.UpdatePolicyRequest
+	4,  // 81: xas.v1alpha.XASServer.DeletePolicy:input_type -> xas.v1alpha.DeletePolicyRequest
+	5,  // 82: xas.v1alpha.XASServer.ListPolicies:input_type -> xas.v1alpha.ListPoliciesRequest
+	16, // 83: xas.v1alpha.XASServer.UpdateWorkload:input_type -> xas.v1alpha.UpdateWorkloadRequest
+	21, // 84: xas.v1alpha.XASServer.GetControlMetrics:input_type -> xas.v1alpha.GetControlMetricsRequest
+	26, // 85: xas.v1alpha.XASServer.WatchControlMetrics:input_type -> xas.v1alpha.WatchControlMetricsRequest
+	17, // 86: xas.v1alpha.XASServer.GetWorkload:input_type -> xas.v1alpha.GetWorkloadRequest
+	28, // 87: xas.v1alpha.XASServer.UpdateRecommenderState:input_type -> xas.v1alpha.UpdateRecommenderStateRequest
+	34, // 88: xas.v1alpha.XASServer.GetRecommendation:input_type -> xas.v1alpha.GetRecommendationRequest
+	37, // 89: xas.v1alpha.XASServer.IngestMetrics:input_type -> xas.v1alpha.IngestMetricsRequest
+	7,  // 90: xas.v1alpha.XASServer.GetPolicy:output_type -> xas.v1alpha.Policy
+	7,  // 91: xas.v1alpha.XASServer.CreatePolicy:output_type -> xas.v1alpha.Policy
+	7,  // 92: xas.v1alpha.XASServer.UpdatePolicy:output_type -> xas.v1alpha.Policy
+	64, // 93: xas.v1alpha.XASServer.DeletePolicy:output_type -> google.protobuf.Empty
+	6,  // 94: xas.v1alpha.XASServer.ListPolicies:output_type -> xas.v1alpha.ListPoliciesResponse
+	18, // 95: xas.v1alpha.XASServer.UpdateWorkload:output_type -> xas.v1alpha.Workload
+	22, // 96: xas.v1alpha.XASServer.GetControlMetrics:output_type -> xas.v1alpha.GetControlMetricsResponse
+	27, // 97: xas.v1alpha.XASServer.WatchControlMetrics:output_type -> xas.v1alpha.WatchControlMetricsResponse
+	18, // 98: xas.v1alpha.XASServer.GetWorkload:output_type -> xas.v1alpha.Workload
+	32, // 99: xas.v1alpha.XASServer.UpdateRecommenderState:output_type -> xas.v1alpha.RecommenderState
+	35, // 100: xas.v1alpha.XASServer.GetRecommendation:output_type -> xas.v1alpha.GetRecommendationResponse
+	42, // 101: xas.v1alpha.XASServer.IngestMetrics:output_type -> xas.v1alpha.IngestMetricsResponse
+	90, // [90:102] is the sub-list for method output_type
+	78, // [78:90] is the sub-list for method input_type
+	78, // [78:78] is the sub-list for extension type_name
+	78, // [78:78] is the sub-list for extension extendee
+	0,  // [0:78] is the sub-list for field type_name
 }
 
 func init() { file_xas_proto_init() }

@@ -135,6 +135,12 @@ spec:
                       description: Eligibility defines which pod samples the metric
                         considers.
                       properties:
+                        startupGracePeriod:
+                          description: |-
+                            StartupGracePeriod ignores the samples emitted by a pod until this long
+                            after it started, on top of the default rules, e.g. to ignore the usage
+                            of a warm-up. Off by default. Incompatible with StartupSamples.
+                          type: string
                         startupSamples:
                           description: |-
                             StartupSamples considers the samples emitted during the pod startup or

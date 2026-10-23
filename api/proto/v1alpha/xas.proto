@@ -36,9 +36,9 @@ service XASServer {
   rpc UpdateWorkload(UpdateWorkloadRequest) returns (Workload);
 
   // --- Control Metrics (Recommender -> Server) ---
-  // Read the current aggregated metric values ("Control Metrics") for a policy.
-  // Recommenders use this to compute their recommendations.
-  rpc GetControlMetrics(GetControlMetricsRequest) returns (ControlMetrics);
+  // Read the current control metric values for a policy. Recommenders use
+  // these to compute their recommendations.
+  rpc GetControlMetrics(GetControlMetricsRequest) returns (GetControlMetricsResponse);
 
   // Stream changes to control metrics.
   rpc WatchControlMetrics(WatchControlMetricsRequest) returns (stream WatchControlMetricsResponse);
@@ -313,16 +313,23 @@ message ContainerState {
 
 // --- Control Metrics ---
 
-// GetControlMetricsRequest retrieves aggregated metrics for a policy.
+// GetControlMetricsRequest retrieves control metrics for a policy.
 message GetControlMetricsRequest { 
   // The policy to fetch metrics for.
   PolicyId id = 1; 
+}
 
-  // Returns only the metrics owned by the specified recommender, as defined in
-  // Policy.recommender_metrics. If omitted, returns only the policy-wide
-  // metrics, i.e. those not owned by a specific recommender.
-  // Workload-level information (ready replicas, timestamp) is always reported.
-  string recommender_name = 2;
+// GetControlMetricsResponse contains ControlMetrics (both global and
+// recommender-owned), as well as basic workload information.
+message GetControlMetricsResponse {
+  // Timestamp of the calculation.
+  google.protobuf.Timestamp timestamp = 1;
+  // The number of ready replicas.
+  int32 ready_replicas = 2;
+  // Global metrics.
+  ControlMetrics control_metrics = 3; 
+  // Per-recommender metrics.
+  map<string, ControlMetrics> recommender_control_metrics = 4;
 }
 
 // A set of control metric values.
@@ -339,10 +346,6 @@ message ContainerMetrics {
 
 // ControlMetrics contains the aggregated values calculated by the Server.
 message ControlMetrics {
-  // Timestamp of the calculation.
-  google.protobuf.Timestamp timestamp = 2;
-  // The number of ready replicas.
-  int32 ready_replicas = 3;
   // Global metric values, keyed by metric name.
   map<string, double> values = 1;
   // Per pod metric values, keyed by pod name.

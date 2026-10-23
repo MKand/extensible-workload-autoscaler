@@ -24,9 +24,11 @@ import (
 
 type Recommender interface {
 	// Recommend returns the recommendation of a recommender, given the
-	// policy-wide metrics, the metrics it owns, and the workload's pods with
-	// their current requests (e.g. to only resize the pods that need it).
-	Recommend(def *pb.RecommenderDefinition, metrics, ownedMetrics *pb.ControlMetrics, workload *pb.Workload) *pb.Recommendation
+	// policy-wide metrics, the metrics it owns (nil if it owns none), the
+	// number of ready replicas the metrics were calculated against, and the
+	// workload's pods with their current requests (e.g. to only resize the
+	// pods that need it).
+	Recommend(def *pb.RecommenderDefinition, metrics, ownedMetrics *pb.ControlMetrics, readyReplicas int32, workload *pb.Workload) *pb.Recommendation
 }
 
 // The VPA recommender owns the metrics the user doesn't configure.
@@ -99,7 +101,7 @@ func (e *Engine) processPolicy(policy *pb.Policy) {
 	// policy, so the providers collect them before we read them back.
 	policy, configErrs := e.syncRecommenderMetrics(policy)
 
-	metrics, err := e.fetchControlMetrics(policy.GetId().GetNamespace(), policy.GetId().GetName(), "")
+	metrics, err := e.fetchControlMetrics(policy.GetId().GetNamespace(), policy.GetId().GetName())
 	if err != nil {
 		return
 	}
@@ -110,8 +112,8 @@ func (e *Engine) processPolicy(policy *pb.Policy) {
 	}
 
 	// Call each recommender to get their recommendation. Provide the
-	// policy-wide metrics, the metrics owned by the recommender, and the
-	// workload.
+	// policy-wide metrics, the metrics owned by the recommender, the ready
+	// replicas, and the workload.
 	var recommendations []namedRecommendation
 	for _, def := range slices.Concat(policy.GetActivation(), policy.GetScaling()) {
 		if err, ok := configErrs[def.GetName()]; ok {
@@ -121,17 +123,15 @@ func (e *Engine) processPolicy(policy *pb.Policy) {
 			}.Build()})
 			continue
 		}
-		ownedMetrics, err := e.fetchControlMetrics(policy.GetId().GetNamespace(), policy.GetId().GetName(), def.GetName())
-		if err != nil {
-			return
-		}
 
 		rec, err := e.recommenderFor(def.GetRecommender())
 		if err != nil {
 			slog.Warn("RecommenderClass not found for policy", "recommender", def.GetRecommender(), "policy", policy.GetId().GetName(), "error", err)
 			return
 		}
-		if v := rec.Recommend(def, metrics, ownedMetrics, workload); v != nil {
+		// Recommenders that own no metric have no entry: ownedMetrics is nil.
+		ownedMetrics := metrics.GetRecommenderControlMetrics()[def.GetName()]
+		if v := rec.Recommend(def, metrics.GetControlMetrics(), ownedMetrics, metrics.GetReadyReplicas(), workload); v != nil {
 			recommendations = append(recommendations, namedRecommendation{name: def.GetName(), recommendation: v})
 		}
 	}
@@ -155,16 +155,14 @@ func (e *Engine) fetchPolicies() ([]*pb.Policy, error) {
 	return resp.GetPolicies(), nil
 }
 
-// fetchControlMetrics reads the control metrics of a policy. An empty recommenderName
-// reads the policy-wide metrics, otherwise only the metrics owned by that
-// recommender are returned.
-func (e *Engine) fetchControlMetrics(ns, name, recommenderName string) (*pb.ControlMetrics, error) {
+// fetchControlMetrics reads the control metrics of a policy: the policy-wide
+// ones and, keyed by recommender name, those owned by each recommender.
+func (e *Engine) fetchControlMetrics(ns, name string) (*pb.GetControlMetricsResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	return e.client.GetControlMetrics(ctx, pb.GetControlMetricsRequest_builder{
-		Id:              pb.PolicyId_builder{ClusterName: proto.String(e.clusterName), Namespace: proto.String(ns), Name: proto.String(name)}.Build(),
-		RecommenderName: proto.String(recommenderName),
+		Id: pb.PolicyId_builder{ClusterName: proto.String(e.clusterName), Namespace: proto.String(ns), Name: proto.String(name)}.Build(),
 	}.Build())
 }
 

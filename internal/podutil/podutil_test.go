@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -165,14 +166,40 @@ func TestIsPodEligible(t *testing.T) {
 	workload := map[string]*pb.PodState{
 		"ready":       pb.PodState_builder{Phase: proto.String("Running"), StartTime: timestamppb.New(start), IsReady: proto.Bool(true), ReadyLastTransitionTime: timestamppb.New(start.Add(time.Minute))}.Build(),
 		"never-ready": pb.PodState_builder{Phase: proto.String("Running"), StartTime: timestamppb.New(start), ReadyLastTransitionTime: timestamppb.New(start.Add(time.Second))}.Build(),
+		"no-start":    pb.PodState_builder{IsReady: proto.Bool(true)}.Build(),
 	}
-	for name, want := range map[string]bool{"ready": true, "never-ready": false, "unknown": false} {
-		if got := IsPodEligible(workload, name); got != want {
-			t.Errorf("IsPodEligible(%q) = %v, want %v", name, got, want)
-		}
+	grace := 10 * time.Minute
+	defaults := (*pb.MetricDefinition_Eligibility)(nil)
+	withGrace := pb.MetricDefinition_Eligibility_builder{StartupGracePeriod: durationpb.New(grace)}.Build()
+	startupSamples := pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true)}.Build()
+	tests := []struct {
+		name        string
+		pod         string
+		eligibility *pb.MetricDefinition_Eligibility
+		now         time.Time
+		want        bool
+	}{
+		{name: "ready", pod: "ready", eligibility: defaults, want: true},
+		{name: "never ready", pod: "never-ready", eligibility: defaults, want: false},
+		{name: "unknown", pod: "unknown", eligibility: defaults, want: false},
+		{name: "ready, within the grace period", pod: "ready", eligibility: withGrace, now: start.Add(grace - time.Second), want: false},
+		{name: "ready, at the end of the grace period", pod: "ready", eligibility: withGrace, now: start.Add(grace), want: true},
+		{name: "ready without a start time, with a grace period", pod: "no-start", eligibility: withGrace, now: start.Add(time.Hour), want: false},
+		{name: "never ready, with a grace period", pod: "never-ready", eligibility: withGrace, now: start.Add(time.Hour), want: false},
+		{name: "never ready, startup samples", pod: "never-ready", eligibility: startupSamples, want: true},
+		{name: "unknown, startup samples", pod: "unknown", eligibility: startupSamples, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.now.IsZero() {
+				tc.now = start.Add(time.Hour)
+			}
+			if got := IsPodEligible(workload, tc.pod, tc.eligibility, tc.now); got != tc.want {
+				t.Errorf("IsPodEligible(%q, %v, %v) = %v, want %v", tc.pod, tc.eligibility, tc.now, got, tc.want)
+			}
+		})
 	}
 }
-
 func TestReadyCondition(t *testing.T) {
 	transition := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
 	pod := &corev1.Pod{

@@ -111,15 +111,14 @@ func (ms *MetricStore) ingestSample(policy *pb.Policy, workload map[string]*pb.P
 		return nil
 	}
 
-	// The samples of the pods that aren't eligible (e.g. still starting up,
-	// or unknown to the workload) are dropped: they must not enter the time
+	// The samples of the pods that aren't eligible for the metric (e.g.
+	// still starting up, within the metric's startup grace period, or
+	// unknown to the workload) are dropped: they must not enter the time
 	// windows, and the samples of the global decaying distributions can't be
 	// told apart once in the workload-wide histogram. Eligibility can also
 	// change after a sample was ingested (e.g. the pod starts terminating),
 	// which the aggregation handles by filtering the series.
-	// The metrics whose startup samples are eligible only drop the samples
-	// of the pods unknown to the workload.
-	if podName != "" && !isPodIngestible(def, workload, podName) {
+	if podName != "" && !podutil.IsPodEligible(workload, podName, def.GetEligibility(), ingestTime) {
 		return nil
 	}
 
@@ -224,7 +223,7 @@ func (ms *MetricStore) calculate(defs []*pb.MetricDefinition, workload map[strin
 		if !def.GetEligibility().GetStartupSamples() {
 			series = filterInitializingCPU(series, workload, now)
 		}
-		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(series, workload))
+		aggregation.AddControlMetric(cm, def.GetName(), metricSeries.Aggregation.Reduce(series, workload, now))
 	}
 
 	// Skip empty ContainerMetrics as, unlike empty maps, an empty proto message
@@ -234,18 +233,6 @@ func (ms *MetricStore) calculate(defs []*pb.MetricDefinition, workload map[strin
 	}
 
 	return cm
-}
-
-// isPodIngestible reports whether the samples of the named pod should be
-// ingested for the given metric: the pod must be eligible (see
-// podutil.IsPodEligible), or only known to the workload if the metric's
-// startup samples are eligible.
-func isPodIngestible(def *pb.MetricDefinition, workload map[string]*pb.PodState, podName string) bool {
-	if def.GetEligibility().GetStartupSamples() {
-		_, ok := workload[podName]
-		return ok
-	}
-	return podutil.IsPodEligible(workload, podName)
 }
 
 // filterInitializingCPU drops the CPU usage series of the pods still in their

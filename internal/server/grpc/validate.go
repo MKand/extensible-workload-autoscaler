@@ -70,6 +70,15 @@ func validateMetricDefinition(m *pb.MetricDefinition) error {
 	if m.GetName() == "" {
 		return status.Errorf(codes.InvalidArgument, "metric name is required")
 	}
+	if e := m.GetEligibility(); e != nil {
+		grace := e.GetStartupGracePeriod().AsDuration()
+		if grace < 0 {
+			return status.Errorf(codes.InvalidArgument, "metric %s: eligibility.startup_grace_period must not be negative", m.GetName())
+		}
+		if grace > 0 && e.GetStartupSamples() {
+			return status.Errorf(codes.InvalidArgument, "metric %s: eligibility.startup_grace_period is incompatible with startup_samples", m.GetName())
+		}
+	}
 	// INTENT VALIDATION
 	intents := 0
 	if m.HasGauge() {

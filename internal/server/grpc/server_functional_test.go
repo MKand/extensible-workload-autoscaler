@@ -110,6 +110,24 @@ func TestUpdatePolicy_Validation(t *testing.T) {
 	if status.Code(err) != codes.InvalidArgument {
 		t.Errorf("Expected InvalidArgument for missing intent, got %v", err)
 	}
+
+	for name, eligibility := range map[string]*pb.MetricDefinition_Eligibility{
+		"a negative startup grace period":                 pb.MetricDefinition_Eligibility_builder{StartupGracePeriod: durationpb.New(-time.Second)}.Build(),
+		"a startup grace period with the startup samples": pb.MetricDefinition_Eligibility_builder{StartupSamples: proto.Bool(true), StartupGracePeriod: durationpb.New(time.Minute)}.Build(),
+	} {
+		req = pb.UpdatePolicyRequest_builder{
+			Policy: pb.Policy_builder{
+				Id: id,
+				Metrics: []*pb.MetricDefinition{pb.MetricDefinition_builder{
+					Name: proto.String("m1"), Eligibility: eligibility, Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build(),
+				}.Build()},
+			}.Build(),
+		}.Build()
+		_, err = client.UpdatePolicy(ctx, req)
+		if status.Code(err) != codes.InvalidArgument {
+			t.Errorf("Expected InvalidArgument for %s, got %v", name, err)
+		}
+	}
 }
 
 func TestUpdatePolicy_CrossCluster(t *testing.T) {
@@ -1104,6 +1122,92 @@ func TestGetControlMetrics_StartupSamples(t *testing.T) {
 	// The replica count isn't affected: it is a property of the workload.
 	if res.GetReadyReplicas() != 1 {
 		t.Errorf("ReadyReplicas = %d, want 1", res.GetReadyReplicas())
+	}
+}
+
+// With a startup grace period, a metric ignores the samples of a pod until
+// the period has elapsed since the pod started, even once it is ready: they
+// are dropped when ingested. The other metrics, and the replica count, are not
+// affected.
+func TestGetControlMetrics_StartupGracePeriod(t *testing.T) {
+	// Both pods started at t=1000 and became ready at t=1010. The grace
+	// period is 5 minutes.
+	start := timestamppb.New(time.Unix(1000, 0))
+	ready := timestamppb.New(time.Unix(1010, 0))
+	const gracePeriod = 5 * time.Minute
+
+	tests := []struct {
+		name    string
+		now     int64
+		wantNew bool // whether pod-new's samples count for the metric with a grace period
+	}{
+		{
+			name: "within the grace period",
+			now:  1000 + 299,
+		},
+		{
+			name:    "at the end of the grace period",
+			now:     1000 + 300,
+			wantNew: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clk := &clock.FakeClock{CurrentTime: time.Unix(tc.now, 0)}
+			memStore, client, cleanup := setupFunctionalGRPCServer(t, clk)
+			defer cleanup()
+			ctx := context.Background()
+
+			id := pb.PolicyId_builder{ClusterName: proto.String("c1"), Namespace: proto.String("ns"), Name: proto.String("p1")}.Build()
+			client.CreatePolicy(ctx, pb.CreatePolicyRequest_builder{
+				Policy: pb.Policy_builder{
+					Id: id,
+					Metrics: []*pb.MetricDefinition{
+						pb.MetricDefinition_builder{Name: proto.String("m_grace"), Eligibility: pb.MetricDefinition_Eligibility_builder{StartupGracePeriod: durationpb.New(gracePeriod)}.Build(), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+						pb.MetricDefinition_builder{Name: proto.String("m_default"), Gauge: pb.Gauge_builder{Aggregation: proto.String("Sum")}.Build()}.Build(),
+					},
+				}.Build(),
+			}.Build())
+			client.UpdateWorkload(ctx, pb.UpdateWorkloadRequest_builder{
+				Id: id,
+				Workload: pb.Workload_builder{Pods: []*pb.PodState{
+					// Started long ago: past its grace period.
+					pb.PodState_builder{Name: proto.String("pod-old"), Phase: proto.String("Running"), StartTime: timestamppb.New(time.Unix(0, 0)), IsReady: proto.Bool(true), ReadyLastTransitionTime: timestamppb.New(time.Unix(10, 0))}.Build(),
+					pb.PodState_builder{Name: proto.String("pod-new"), Phase: proto.String("Running"), StartTime: start, IsReady: proto.Bool(true), ReadyLastTransitionTime: ready}.Build(),
+				}}.Build(),
+			}.Build())
+
+			batch := func(pod string, value float64) *pb.MetricBatch {
+				return pb.MetricBatch_builder{PodName: proto.String(pod), Samples: []*pb.MetricSample{
+					pb.MetricSample_builder{Name: proto.String("m_grace"), Value: proto.Float64(value)}.Build(),
+					pb.MetricSample_builder{Name: proto.String("m_default"), Value: proto.Float64(value)}.Build(),
+				}}.Build()
+			}
+			if _, err := client.IngestMetrics(ctx, pb.IngestMetricsRequest_builder{
+				ClusterName: proto.String("c1"), Timestamp: timestamppb.New(clk.Now()),
+				Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+					Namespace: proto.String("ns"), Name: proto.String("p1"),
+					Batches: []*pb.MetricBatch{batch("pod-old", 1), batch("pod-new", 10)},
+				}.Build()},
+			}.Build()); err != nil {
+				t.Fatalf("IngestMetrics() = %v", err)
+			}
+
+			memStore.CalculateAll()
+			res := getControlMetrics(t, ctx, client, id)
+
+			wantRes := pb.GetControlMetricsResponse_builder{
+				Timestamp:      timestamppb.New(clk.Now()),
+				ReadyReplicas:  proto.Int32(2),
+				ControlMetrics: pb.ControlMetrics_builder{Values: map[string]float64{"m_grace": 1, "m_default": 11}}.Build(),
+			}.Build()
+			if tc.wantNew {
+				wantRes.GetControlMetrics().GetValues()["m_grace"] = 11
+			}
+			if diff := cmp.Diff(wantRes, res, protocmp.Transform(), protocmp.IgnoreDefaultScalars()); diff != "" {
+				t.Errorf("ControlMetrics mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

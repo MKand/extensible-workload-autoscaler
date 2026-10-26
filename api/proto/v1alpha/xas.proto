@@ -207,6 +207,10 @@ message MetricDefinition {
     // and for CPU usage, that have been ready for long enough for a full
     // sample to be measured, as the HPA does.
     bool startup_samples = 1;
+    // Ignore the samples emitted by a pod until this long after it started,
+    // on top of the default rules. Unset or zero means no grace period.
+    // Incompatible with startup_samples.
+    google.protobuf.Duration startup_grace_period = 2;
   }
   // Which pod samples the metric considers.
   Eligibility eligibility = 16;

@@ -28,9 +28,10 @@ type AggregatedMetrics struct {
 type SeriesAggregation interface {
 	// NewTimeWindow creates a new temporal aggregation for a given metric.
 	NewTimeWindow(def *pb.MetricDefinition) model.TimeWindow
-	// Reduce aggregates the series of a metric, returning one aggregate for
-	// the global scope, one aggregate per pod for the pod scope, etc.
-	Reduce(series iter.Seq[*model.Series], workload map[string]*pb.PodState) []*SeriesAggregate
+	// Reduce aggregates the series of a metric as of time now, returning one
+	// aggregate for the global scope, one aggregate per pod for the pod
+	// scope, etc.
+	Reduce(series iter.Seq[*model.Series], workload map[string]*pb.PodState, now time.Time) []*SeriesAggregate
 }
 
 // DimensionalSeriesAggregation aggregates series one dimension at a time:
@@ -71,7 +72,7 @@ func (a *DimensionalSeriesAggregation) NewTimeWindow(def *pb.MetricDefinition) m
 }
 
 // Reduce implements SeriesAggregation.
-func (a *DimensionalSeriesAggregation) Reduce(series iter.Seq[*model.Series], workload map[string]*pb.PodState) []*SeriesAggregate {
+func (a *DimensionalSeriesAggregation) Reduce(series iter.Seq[*model.Series], workload map[string]*pb.PodState, now time.Time) []*SeriesAggregate {
 	if a.WorkloadTimeWindow != nil {
 		sample, ok := a.WorkloadTimeWindow.Apply()
 		if !ok {
@@ -86,7 +87,7 @@ func (a *DimensionalSeriesAggregation) Reduce(series iter.Seq[*model.Series], wo
 
 	var aggregates []*SeriesAggregate
 	for s := range series {
-		if agg, ok := NewSeriesAggregate(s); ok && !filter(agg, workload, a.Filters) {
+		if agg, ok := NewSeriesAggregate(s); ok && !filter(agg, workload, now, a.Filters) {
 			aggregates = append(aggregates, agg)
 		}
 	}
@@ -131,7 +132,7 @@ func CreateSeriesAggregation(def *pb.MetricDefinition, resourceName, podName, co
 	// series are garbage collected: the VPA doesn't forget the usage of the
 	// pods that terminated either.
 	if !def.GetEligibility().GetStartupSamples() {
-		seriesFilters = append(seriesFilters, NonEligiblePodSeriesFilter) // Drops series associated with non-eligible pods
+		seriesFilters = append(seriesFilters, CreateNonEligiblePodSeriesFilter(def.GetEligibility())) // Drops series associated with non-eligible pods
 	}
 
 	labelsReducer := SumSeriesReducer
@@ -309,9 +310,9 @@ func removePodDimension(aggregates []*SeriesAggregate) {
 
 // filter returns true if any of the provided filters matches the aggregate, in
 // which case it should be dropped.
-func filter(agg *SeriesAggregate, workload map[string]*pb.PodState, filters []SeriesFilter) bool {
+func filter(agg *SeriesAggregate, workload map[string]*pb.PodState, now time.Time, filters []SeriesFilter) bool {
 	for _, f := range filters {
-		if f(workload, agg) {
+		if f(workload, agg, now) {
 			return true
 		}
 	}

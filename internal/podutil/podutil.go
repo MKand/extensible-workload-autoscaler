@@ -91,19 +91,30 @@ func IsCPUSampleEligible(l Lifecycle, sampleTime time.Time, window time.Duration
 	return l.Ready && !sampleTime.Before(l.ReadyLastTransitionTime.Add(window))
 }
 
-// IsPastStartupGracePeriod reports whether, at time now, a pod in the given
-// lifecycle state started at least gracePeriod ago. A pod without a start time
-// has not been acknowledged by the kubelet yet, and is never past it.
-func IsPastStartupGracePeriod(l Lifecycle, gracePeriod time.Duration, now time.Time) bool {
-	return !l.StartTime.IsZero() && !now.Before(l.StartTime.Add(gracePeriod))
-}
-
-// IsPodEligible reports whether the metrics of the named pod should be
-// considered, given the workload (the pods reported to the Server, keyed by
-// name). A pod the workload does not know is not eligible.
-func IsPodEligible(workload map[string]*pb.PodState, podName string) bool {
+// IsPodEligible reports whether the samples of the named pod should be
+// considered at time now by a metric with the given eligibility, given the
+// workload (the pods reported to the Server, keyed by name). A pod the
+// workload does not know is never eligible. Otherwise, if the metric's startup
+// samples are eligible, every pod is. If not, the pod must be eligible (see
+// IsEligible) and, if the metric has a startup grace period, have started at
+// least that long ago; a pod without a start time has not been acknowledged by
+// the kubelet yet, and is never past the grace period.
+func IsPodEligible(workload map[string]*pb.PodState, podName string, eligibility *pb.MetricDefinition_Eligibility, now time.Time) bool {
 	p, ok := workload[podName]
-	return ok && IsEligible(FromPodState(p))
+	if !ok {
+		return false
+	}
+	if eligibility.GetStartupSamples() {
+		return true
+	}
+	l := FromPodState(p)
+	if !IsEligible(l) {
+		return false
+	}
+	if grace := eligibility.GetStartupGracePeriod().AsDuration(); grace > 0 {
+		return !l.StartTime.IsZero() && !now.Before(l.StartTime.Add(grace))
+	}
+	return true
 }
 
 // ReadyCondition returns the pod's Ready condition, or nil if it has none.

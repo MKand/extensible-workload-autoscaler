@@ -8,15 +8,18 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -30,6 +33,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
+	"github.com/gke-labs/extensible-workload-autoscaler/internal/controller/watchclient"
 	"github.com/gke-labs/extensible-workload-autoscaler/internal/podutil"
 	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/pkg/apis/xas/v1"
 	clientset "github.com/gke-labs/extensible-workload-autoscaler/pkg/client/clientset/versioned"
@@ -37,16 +41,41 @@ import (
 	listers "github.com/gke-labs/extensible-workload-autoscaler/pkg/client/listers/xas/v1"
 )
 
-const xasFinalizer = "xas.io/finalizer"
+const (
+	xasFinalizer    = "xas.io/finalizer"
+	recChanCapacity = 100
+)
+
+// policyID identifies a ScalingPolicy in the workqueue.
+type policyID struct {
+	namespace string
+	name      string
+}
+
+func policyIDOf(p *xasv1.ScalingPolicy) policyID {
+	return policyID{namespace: p.Namespace, name: p.Name}
+}
+
+// protoPolicyID converts a policyID to the gRPC PolicyId, scoped to this controller's cluster.
+func (c *Controller) protoPolicyID(id policyID) *pb.PolicyId {
+	return pb.PolicyId_builder{
+		ClusterName: new(c.clusterName),
+		Namespace:   new(id.namespace),
+		Name:        new(id.name),
+	}.Build()
+}
 
 type Controller struct {
 	kubeclientset        kubernetes.Interface
 	xasclientset         clientset.Interface
+	scaleClient          scale.ScalesGetter
+	mapper               meta.RESTMapper
 	policiesLister       listers.ScalingPolicyLister
 	metricProviderLister listers.MetricProviderClassLister
 	recommenderLister    listers.RecommenderClassLister
 	policiesSynced       cache.InformerSynced
-	workqueue            workqueue.RateLimitingInterface
+	workqueue            workqueue.TypedRateLimitingInterface[policyID]
+	state                *State
 
 	grpcConn   *grpc.ClientConn
 	grpcClient pb.XASServerClient
@@ -57,6 +86,8 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	xasclientset clientset.Interface,
+	scaleClient scale.ScalesGetter,
+	mapper meta.RESTMapper,
 	policyInformer informers.ScalingPolicyInformer,
 	metricProviderInformer informers.MetricProviderClassInformer,
 	recommenderInformer informers.RecommenderClassInformer,
@@ -73,14 +104,20 @@ func NewController(
 	c := &Controller{
 		kubeclientset:        kubeclientset,
 		xasclientset:         xasclientset,
+		scaleClient:          scaleClient,
+		mapper:               mapper,
 		policiesLister:       policyInformer.Lister(),
 		metricProviderLister: metricProviderInformer.Lister(),
 		recommenderLister:    recommenderInformer.Lister(),
 		policiesSynced:       policyInformer.Informer().HasSynced,
-		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ScalingPolicies"),
-		grpcConn:             conn,
-		grpcClient:           client,
-		clusterName:          clusterName,
+		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[policyID](),
+			workqueue.TypedRateLimitingQueueConfig[policyID]{Name: "ScalingPolicies"},
+		),
+		state:       NewState(),
+		grpcConn:    conn,
+		grpcClient:  client,
+		clusterName: clusterName,
 	}
 
 	slog.Info("Setting up event handlers")
@@ -107,9 +144,15 @@ func (c *Controller) Run(workers int, ctx context.Context) error {
 	}
 
 	slog.Info("Starting workers")
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go wait.Until(c.runWorker, time.Second, ctx.Done())
 	}
+
+	// Start the recommendation stream and its consumer.
+	recChan := make(chan *pb.WatchRecommendationsResponse, recChanCapacity)
+	recClient := watchclient.NewRecommendationsClient(c.grpcConn, c.clusterName)
+	go recClient.Run(ctx, recChan)
+	go c.handleRecommendations(ctx, recChan)
 
 	// Start a poller loop to re-enqueue items periodically
 	go wait.Until(c.poller, 5*time.Second, ctx.Done())
@@ -120,51 +163,114 @@ func (c *Controller) Run(workers int, ctx context.Context) error {
 	return nil
 }
 
+// handleRecommendations consumes streamed recommendations and, for each one,
+// actuates it on the target workload and updates the policy status.
+func (c *Controller) handleRecommendations(ctx context.Context, ch <-chan *pb.WatchRecommendationsResponse) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case resp := <-ch:
+			if err := c.handleRecommendation(resp); err != nil {
+				slog.Error("Failed to handle streamed recommendation",
+					"namespace", resp.GetId().GetNamespace(), "name", resp.GetId().GetName(), "error", err)
+			}
+		}
+	}
+}
+
+// handleRecommendation applies a single streamed recommendation: it resolves
+// the policy and its target deployment, then runs actuate and updateStatus.
+func (c *Controller) handleRecommendation(resp *pb.WatchRecommendationsResponse) error {
+	id := policyID{namespace: resp.GetId().GetNamespace(), name: resp.GetId().GetName()}
+
+	policy, err := c.policiesLister.ScalingPolicies(id.namespace).Get(id.name)
+	if err != nil {
+		return fmt.Errorf("getting policy: %w", err)
+	}
+	if !policy.ObjectMeta.DeletionTimestamp.IsZero() {
+		return nil // Policy is being deleted; nothing to actuate.
+	}
+
+	// The pod selector is cached by reconcilePolicy, which is the only writer.
+	selector, ok := c.state.getSelector(id)
+	if !ok {
+		return fmt.Errorf("no cached selector for policy; it has not been reconciled yet")
+	}
+
+	// The /scale subresource carries the current replica count and works for
+	// any scalable resource, not just Deployments.
+	targetResource, err := c.scaleTargetResource(policy.Spec.ScaleTargetRef)
+	if err != nil {
+		return fmt.Errorf("resolving scale target: %w", err)
+	}
+	scale, err := c.scaleClient.Scales(policy.Namespace).
+		Get(context.TODO(), targetResource, policy.Spec.ScaleTargetRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting scale for %s %s: %w", targetResource, policy.Spec.ScaleTargetRef.Name, err)
+	}
+
+	// actuate and updateStatus operate on a GetRecommendationResponse, which
+	// carries the same payload as the streamed message minus the policy id.
+	recResp := pb.GetRecommendationResponse_builder{
+		Recommendation: resp.GetRecommendation(),
+		Explanation:    resp.GetExplanation(),
+		MetricStatuses: resp.GetMetricStatuses(),
+	}.Build()
+
+	if recResp.HasRecommendation() {
+		if err := c.actuate(policy, targetResource, scale, selector, recResp.GetRecommendation()); err != nil {
+			return fmt.Errorf("actuating: %w", err)
+		}
+	}
+	return c.updateStatus(policy, scale, selector, recResp)
+}
+
+// scaleTargetResource resolves a policy's scaleTargetRef (apiVersion + kind)
+// to the GroupResource expected by the scale client, using API discovery.
+// An empty apiVersion defaults to apps/v1 for backward compatibility.
+func (c *Controller) scaleTargetResource(ref xasv1.CrossVersionObjectReference) (schema.GroupResource, error) {
+	apiVersion := ref.APIVersion
+	if apiVersion == "" {
+		apiVersion = "apps/v1"
+	}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return schema.GroupResource{}, fmt.Errorf("invalid apiVersion %q: %w", apiVersion, err)
+	}
+	mapping, err := c.mapper.RESTMapping(schema.GroupKind{Group: gv.Group, Kind: ref.Kind}, gv.Version)
+	if err != nil {
+		return schema.GroupResource{}, fmt.Errorf("mapping %s/%s: %w", apiVersion, ref.Kind, err)
+	}
+	return mapping.Resource.GroupResource(), nil
+}
+
 func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
 
 func (c *Controller) processNextWorkItem() bool {
-	obj, shutdown := c.workqueue.Get()
+	id, shutdown := c.workqueue.Get()
 	if shutdown {
 		return false
 	}
+	defer c.workqueue.Done(id)
 
-	err := func(obj interface{}) error {
-		defer c.workqueue.Done(obj)
-		var key string
-		var ok bool
-		if key, ok = obj.(string); !ok {
-			c.workqueue.Forget(obj)
-			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
-		}
-		if err := c.syncHandler(key); err != nil {
-			c.workqueue.AddRateLimited(key)
-			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
-		}
-		c.workqueue.Forget(obj)
-		return nil
-	}(obj)
-
-	if err != nil {
-		utilruntime.HandleError(err)
+	if err := c.syncHandler(id); err != nil {
+		c.workqueue.AddRateLimited(id)
+		utilruntime.HandleError(fmt.Errorf("error syncing '%s/%s': %w, requeuing", id.namespace, id.name, err))
+		return true
 	}
+	c.workqueue.Forget(id)
 	return true
 }
 
-func (c *Controller) syncHandler(key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
-	}
-
-	policy, err := c.policiesLister.ScalingPolicies(namespace).Get(name)
+func (c *Controller) syncHandler(id policyID) error {
+	policy, err := c.policiesLister.ScalingPolicies(id.namespace).Get(id.name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return c.reconcileDelete(namespace, name)
+			return c.reconcileDelete(id)
 		}
 		return err
 	}
@@ -172,6 +278,8 @@ func (c *Controller) syncHandler(key string) error {
 	return c.reconcilePolicy(policy)
 }
 
+// validateReferences returns an error if a policy refers to unknown
+// recommenders or metric providers.
 func (c *Controller) validateReferences(p *xasv1.ScalingPolicy) error {
 	for _, m := range p.Spec.Metrics {
 		if _, err := c.metricProviderLister.Get(m.Provider); err != nil {
@@ -191,14 +299,11 @@ func (c *Controller) validateReferences(p *xasv1.ScalingPolicy) error {
 	return nil
 }
 
-func (c *Controller) reconcileDelete(namespace, name string) error {
-	slog.Info("Policy deleted in K8s, syncing deletion to Server", "namespace", namespace, "name", name)
+func (c *Controller) reconcileDelete(id policyID) error {
+	slog.Info("Policy deleted in K8s, syncing deletion to Server", "namespace", id.namespace, "name", id.name)
+	c.state.delete(id)
 	req := pb.DeletePolicyRequest_builder{
-		Id: pb.PolicyId_builder{
-			ClusterName: proto.String(c.clusterName),
-			Namespace:   proto.String(namespace),
-			Name:        proto.String(name),
-		}.Build(),
+		Id: c.protoPolicyID(id),
 	}.Build()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -213,7 +318,7 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		// The object is being deleted
 		if containsString(policy.ObjectMeta.Finalizers, xasFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := c.reconcileDelete(policy.Namespace, policy.Name); err != nil {
+			if err := c.reconcileDelete(policyIDOf(policy)); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
 				return err
@@ -236,62 +341,56 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		}
 	}
 
-	// 0. Validate References
+	// 0. Warn about unknown recommenders or metric providers.
 	if err := c.validateReferences(policy); err != nil {
 		// TODO: Update status with validation error condition
 		slog.Error("Validation failed for policy", "namespace", policy.Namespace, "name", policy.Name, "error", err)
 		return nil // Do not retry until policy is updated
 	}
 
-	// 1. Get Target Deployment
-	deploymentName := policy.Spec.ScaleTargetRef.Name
-	var deployment *appsv1.Deployment
-	var err error
-	deployment, err = c.kubeclientset.AppsV1().Deployments(policy.Namespace).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	// 1. Get the target workload's /scale subresource and cache its selector.
+	targetResource, err := c.scaleTargetResource(policy.Spec.ScaleTargetRef)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolving scale target: %w", err)
 	}
+	scale, err := c.scaleClient.Scales(policy.Namespace).
+		Get(context.TODO(), targetResource, policy.Spec.ScaleTargetRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting scale for %s %s: %w", targetResource, policy.Spec.ScaleTargetRef.Name, err)
+	}
+	selector := scale.Status.Selector
+	c.state.setSelector(policyIDOf(policy), selector)
 
 	// 2. Push Policy to Server
-	if err := c.pushPolicy(policy, deployment); err != nil {
+	if err := c.pushPolicy(policy, selector); err != nil {
 		slog.Error("Failed to push policy to server", "error", err)
 		return nil
 	}
 
-	// 3. Sync Workload State (Topology) to Server
-	if err := c.syncWorkload(policy, deployment); err != nil {
+	// 3. Sync Workload State to Server
+	if err := c.syncWorkload(policy, selector); err != nil {
 		slog.Error("Failed to sync workload", "error", err)
 		return nil
 	}
+	return nil
+}
 
-	// 4. Poll Server
-	resp, err := c.getRecommendation(policy.Namespace, policy.Name)
-	if err != nil {
-		slog.Error("Failed to get recommendation", "deployment", deploymentName, "error", err)
-		return nil
-	}
-
-	if !resp.HasRecommendation() {
-		slog.Debug("No recommendation available for policy", "policy", policy.Name)
-		return nil
-	}
-
-	rec := resp.GetRecommendation()
-	currentReplicas := int32(0)
-	if deployment.Spec.Replicas != nil {
-		currentReplicas = *deployment.Spec.Replicas
-	}
+// actuate applies a recommendation to the target workload and its pods:
+// horizontal scaling via the /scale subresource, in-place vertical scaling via
+// the pod /resize subresource, and the eviction fallback for infeasible
+// resizes when configured by the policy.
+func (c *Controller) actuate(policy *xasv1.ScalingPolicy, targetResource schema.GroupResource, scale *autoscalingv1.Scale, selector string, rec *pb.Recommendation) error {
+	deploymentName := scale.Name
+	currentReplicas := scale.Spec.Replicas
 	slog.Info("Recommendation", "deployment", deploymentName, "replicas", proto.ValueOrNil(rec.HasReplicas(), rec.GetReplicas), "currentReplicas", currentReplicas)
 
-	// 5. Actuate
-	// If there's a horizontal recommendation, and it differs from the deployment's current value, actuate.
-	if rec.HasReplicas() &&
-		(deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != rec.GetReplicas()) {
+	// If there's a horizontal recommendation, and it differs from the workload's current value, actuate.
+	if rec.HasReplicas() && currentReplicas != rec.GetReplicas() {
 		slog.Info("SCALING", "deployment", deploymentName, "from", currentReplicas, "to", rec.GetReplicas())
-		deploymentCopy := deployment.DeepCopy()
-		deploymentCopy.Spec.Replicas = proto.Int32(rec.GetReplicas())
-		if _, err := c.kubeclientset.AppsV1().Deployments(policy.Namespace).
-			Update(context.TODO(), deploymentCopy, metav1.UpdateOptions{}); err != nil {
+		scaleCopy := scale.DeepCopy()
+		scaleCopy.Spec.Replicas = rec.GetReplicas()
+		if _, err := c.scaleClient.Scales(policy.Namespace).
+			Update(context.TODO(), targetResource, scaleCopy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -320,8 +419,7 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 	}
 
 	// Actuate Workload Resources via /resize subresource on all matching pods
-	if len(rec.GetWorkloadResources()) > 0 && deployment.Spec.Selector != nil {
-		selector := labels.Set(deployment.Spec.Selector.MatchLabels).String()
+	if len(rec.GetWorkloadResources()) > 0 && selector != "" {
 		pods, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 		if err == nil {
 			for i := range pods.Items {
@@ -349,8 +447,7 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 	}
 
 	// Actuation Policy & Fallback
-	if policy.Spec.ActuationPolicy != nil && policy.Spec.ActuationPolicy.InPlaceFallback == "EvictOnFailure" {
-		selector := labels.Set(deployment.Spec.Selector.MatchLabels).String()
+	if policy.Spec.ActuationPolicy != nil && policy.Spec.ActuationPolicy.InPlaceFallback == "EvictOnFailure" && selector != "" {
 		pods, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 		if err == nil {
 			for _, pod := range pods.Items {
@@ -362,24 +459,23 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		}
 	}
 
-	// 5. Update Status
+	return nil
+}
+
+// updateStatus populates the ScalingPolicy status from the target workload's
+// scale and the server's recommendation response, then persists it via
+// UpdateStatus.
+func (c *Controller) updateStatus(policy *xasv1.ScalingPolicy, scale *autoscalingv1.Scale, selector string, resp *pb.GetRecommendationResponse) error {
+	rec := resp.GetRecommendation()
 	policyCopy := policy.DeepCopy()
-	if deployment.Spec.Replicas != nil {
-		policyCopy.Status.CurrentReplicas = *deployment.Spec.Replicas
-	}
+	policyCopy.Status.CurrentReplicas = scale.Spec.Replicas
 	if rec.HasReplicas() {
 		policyCopy.Status.DesiredReplicas = rec.GetReplicas()
-	} else if deployment.Spec.Replicas != nil {
-		policyCopy.Status.DesiredReplicas = *deployment.Spec.Replicas
+	} else {
+		policyCopy.Status.DesiredReplicas = scale.Spec.Replicas
 	}
 	policyCopy.Status.LastUpdated = time.Now().Format(time.RFC3339)
-
-	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
-	if err != nil {
-		slog.Error("Error parsing selector", "error", err)
-	} else {
-		policyCopy.Status.Selector = selector.String()
-	}
+	policyCopy.Status.Selector = selector
 
 	policyCopy.Status.Recommendations = make([]xasv1.RecommendationStatus, len(resp.GetExplanation()))
 	for i, d := range resp.GetExplanation() {
@@ -434,21 +530,11 @@ func (c *Controller) reconcilePolicy(policy *xasv1.ScalingPolicy) error {
 		}
 	}
 
-	_, err = c.xasclientset.XASV1().ScalingPolicies(policy.Namespace).UpdateStatus(context.TODO(), policyCopy, metav1.UpdateOptions{})
+	_, err := c.xasclientset.XASV1().ScalingPolicies(policy.Namespace).UpdateStatus(context.TODO(), policyCopy, metav1.UpdateOptions{})
 	return err
 }
 
-func (c *Controller) getRecommendation(namespace, policyName string) (*pb.GetRecommendationResponse, error) {
-	req := pb.GetRecommendationRequest_builder{
-		Id: pb.PolicyId_builder{ClusterName: proto.String(c.clusterName), Namespace: proto.String(namespace), Name: proto.String(policyName)}.Build(),
-	}.Build()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	return c.grpcClient.GetRecommendation(ctx, req)
-}
-
-func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deployment) error {
+func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, selector string) error {
 	gv := p.Spec.ScaleTargetRef.APIVersion
 	var group, version string
 	if strings.Contains(gv, "/") {
@@ -543,11 +629,7 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	policyId := pb.PolicyId_builder{
-		ClusterName: proto.String(c.clusterName),
-		Namespace:   proto.String(p.Namespace),
-		Name:        proto.String(p.Name),
-	}.Build()
+	policyId := c.protoPolicyID(policyIDOf(p))
 	getPoliciesReq := pb.GetPolicyRequest_builder{
 		Id: policyId,
 	}.Build()
@@ -570,7 +652,7 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 		Metrics:     metrics,
 		Activation:  activation,
 		Scaling:     scaling,
-		Selector:    proto.String(labels.Set(deployment.Spec.Selector.MatchLabels).String()),
+		Selector:    proto.String(selector),
 	}.Build()
 	if err == nil {
 		pol.SetEtag(sp.GetEtag())
@@ -590,13 +672,16 @@ func (c *Controller) pushPolicy(p *xasv1.ScalingPolicy, deployment *appsv1.Deplo
 }
 
 func (c *Controller) enqueuePolicy(obj interface{}) {
-	var key string
-	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		utilruntime.HandleError(err)
+	// Handle tombstones from the informer on missed deletes.
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = tombstone.Obj
+	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("cannot enqueue object %#v: %w", obj, err))
 		return
 	}
-	c.workqueue.Add(key)
+	c.workqueue.Add(policyID{namespace: accessor.GetNamespace(), name: accessor.GetName()})
 }
 
 func (c *Controller) poller() {
@@ -607,16 +692,12 @@ func (c *Controller) poller() {
 	}
 
 	for _, p := range allPolicies {
-		key, err := cache.MetaNamespaceKeyFunc(p)
-		if err == nil {
-			c.workqueue.Add(key)
-		}
+		c.workqueue.Add(policyIDOf(p))
 	}
 }
 
-func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv1.Deployment) error {
+func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, selector string) error {
 	// 1. List Pods
-	selector := labels.Set(deployment.Spec.Selector.MatchLabels).String()
 	pods, err := c.kubeclientset.CoreV1().Pods(policy.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return err
@@ -627,13 +708,14 @@ func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv
 	for i := range pods.Items {
 		replicas = append(replicas, buildPodState(&pods.Items[i]))
 	}
+	workload := pb.Workload_builder{
+		Pods: replicas,
+	}.Build()
 
 	// 3. Send
 	req := pb.UpdateWorkloadRequest_builder{
-		Id: pb.PolicyId_builder{ClusterName: proto.String(c.clusterName), Namespace: proto.String(policy.Namespace), Name: proto.String(policy.Name)}.Build(),
-		Workload: pb.Workload_builder{
-			Pods: replicas,
-		}.Build(),
+		Id:       c.protoPolicyID(policyIDOf(policy)),
+		Workload: workload,
 	}.Build()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -647,9 +729,9 @@ func (c *Controller) syncWorkload(policy *xasv1.ScalingPolicy, deployment *appsv
 // Server needs to decide whether the pod's metrics should be considered.
 func buildPodState(pod *corev1.Pod) *pb.PodState {
 	state := pb.PodState_builder{
-		Name:       proto.String(pod.Name),
-		NodeName:   proto.String(pod.Spec.NodeName),
-		Phase:      proto.String(string(pod.Status.Phase)),
+		Name:       new(pod.Name),
+		NodeName:   new(pod.Spec.NodeName),
+		Phase:      new(string(pod.Status.Phase)),
 		Containers: buildContainerStates(pod),
 	}.Build()
 	if pod.DeletionTimestamp != nil {

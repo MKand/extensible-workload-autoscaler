@@ -23,7 +23,7 @@ export KO_DOCKER_REPO="kind.local"
 echo "=========================================================="
 echo "Building and pushing Sample App Docker image"
 echo "=========================================================="
-make -C "${ROOT}/test/samples/sample-app/" docker-build IMAGE_TAG="latest"
+make -C "${ROOT}/samples/sample-app/" docker-build IMAGE_TAG="latest"
 
 echo "Loading Sample App into Kind cluster '$KIND_CLUSTER_NAME'..."
 kind load docker-image "${SAMPLES_IMAGE_NAME}" --name "$KIND_CLUSTER_NAME"
@@ -33,16 +33,16 @@ echo "=========================================================="
 echo "Deploying xAS manifests to kind cluster '${KIND_CLUSTER_NAME}' using ko"
 echo "=========================================================="
 
-kubectl apply -f "${ROOT}"/deploy/crd/
+kubectl apply -f "${ROOT}"/manifests/crd/
 
 export KIND_CLUSTER_NAME # For ko resolve to push images to the KinD image cache.
 
 # Build system binaries and resolve manifest references using ko in one unified step.
 # A single yaml file must not contain more than 4 ko:// images. Otherwise it will hang.
-"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/deploy/xas-control-plane.yaml | kubectl apply -f -
-"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/deploy/xas-core-node-metrics-provider.yaml | kubectl apply -f -
-"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/deploy/xas-core-recommenders.yaml | kubectl apply -f -
-"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/deploy/xas-core-cluster-metrics-provider.yaml | kubectl apply -f -
+"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-server.yaml | kubectl apply -f -
+"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-node-metrics-provider.yaml | kubectl apply -f -
+"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-recommenders.yaml | kubectl apply -f -
+"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-cluster-metrics-provider.yaml | kubectl apply -f -
 
 echo "=========================================================="
 echo "Restarting xAS workloads..."
@@ -57,6 +57,6 @@ echo "=========================================================="
 echo "Deployment Complete!"
 echo "=========================================================="
 echo ""
-echo "Sample apps are located in test/samples."
-echo "To deploy the 'kubelet-cpu' sample only: kubectl apply -f test/samples/manifests/kubelet-cpu.yaml"
-echo "To deploy all samples: kubectl apply -f test/samples/manifests"
+echo "Sample apps are located in samples/."
+echo "To deploy the 'kubelet-cpu' sample only: kubectl apply -f samples/manifests/kubelet-cpu.yaml"
+echo "To deploy all samples: kubectl apply -f samples/manifests"

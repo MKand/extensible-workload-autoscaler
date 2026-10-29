@@ -48,7 +48,7 @@ The system architecture follows a Hub-and-Spoke model:
     ```bash
     make codegen
     ```
-    Regenerates Kubernetes clientsets, listers, informers, and Protobuf code. Run this after modifying `pkg/apis` or `.proto` files.
+    Regenerates Kubernetes clientsets, listers, informers, and Protobuf code. Run this after modifying `api/xas` or `.proto` files.
 
 *   **Verification:**
     ```bash
@@ -82,14 +82,14 @@ Defines a reusable scaling strategy.
 
 ## Directory Structure
 
-*   `api/proto`: gRPC service definitions.
+*   `api/server`: gRPC service definitions.
 *   `cmd/`: Main entrypoints for each component.
-*   `deploy/`: Kubernetes manifests (CRDs, RBAC, Install).
+*   `manifests/`: Kubernetes manifests (CRDs, RBAC, Install).
 *   `internal/`: Private implementation code.
     *   `server/`: Server logic.
     *   `controller/`: K8s Operator logic.
     *   `core-node-metrics-provider/`: Scraper logic.
     *   `recommenders/`: Scaling algorithms.
-*   `pkg/apis`: Kubernetes API types (CRDs).
+*   `api/xas`: Kubernetes API types (CRDs).
 *   `pkg/client`: Generated K8s clients.
 *   `test/e2e`: End-to-end test scenarios and example policies.

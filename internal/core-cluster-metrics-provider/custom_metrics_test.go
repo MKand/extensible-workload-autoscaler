@@ -16,8 +16,8 @@ import (
 	customv1beta2 "k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
 	customclient "k8s.io/metrics/pkg/client/custom_metrics"
 
-	pb "github.com/gke-labs/extensible-workload-autoscaler/api/proto/v1alpha"
-	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/pkg/apis/xas/v1"
+	pb "github.com/gke-labs/extensible-workload-autoscaler/api/server/v1alpha"
+	xasv1 "github.com/gke-labs/extensible-workload-autoscaler/api/xas/v1"
 )
 
 type fakeCustomClient struct {

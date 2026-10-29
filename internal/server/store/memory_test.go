@@ -276,7 +276,7 @@ func ingestWithLabels(s *MemoryStore, ts int64, ns, pol, pod, metric string, val
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(pol),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
 				PodName: proto.String(pod),
@@ -295,7 +295,7 @@ func ingestHist(s *MemoryStore, ts int64, ns, pol, pod, metric string, buckets m
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(pol),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
 				PodName: proto.String(pod),
@@ -344,7 +344,7 @@ func TestRecommendationArbitration(t *testing.T) {
 	}.Build())
 
 	s.CalculateAll()
-	rec, _ := s.GetRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String("arb-pol")}.Build())
+	rec, _ := s.GetArbitratedRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String("arb-pol")}.Build())
 	if rec.GetRecommendation().GetReplicas() != 5 {
 		t.Errorf("Case 1: Want 5, Got %d", rec.GetRecommendation().GetReplicas())
 	}
@@ -361,7 +361,7 @@ func TestRecommendationArbitration(t *testing.T) {
 	// Here a1 says inactive.
 	s.CalculateAll()
 
-	rec, _ = s.GetRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String("arb-pol")}.Build())
+	rec, _ = s.GetArbitratedRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String("default"), Name: proto.String("arb-pol")}.Build())
 	if rec.GetRecommendation().GetReplicas() != 0 {
 		t.Errorf("Case 2: Want 0 (Inactive), Got %d", rec.GetRecommendation().GetReplicas())
 	}
@@ -404,7 +404,7 @@ func TestDump(t *testing.T) {
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(1000, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String("default"), Name: proto.String("dump-pol"),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
 				PodName: proto.String("p1"),
@@ -734,14 +734,14 @@ func TestMultiTenantIsolation(t *testing.T) {
 	// 3. Ingest Data (Value 100 for A, 200 for B)
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("cluster-A"), Timestamp: timestamppb.New(time.Unix(1000, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(name),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("pod-a"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(100), Timestamp: timestamppb.New(time.Unix(1000, 0))}.Build()}}.Build()},
 		}.Build()},
 	}.Build())
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("cluster-B"), Timestamp: timestamppb.New(time.Unix(1000, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(name),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{PodName: proto.String("pod-b"), Samples: []*pb.MetricSample{pb.MetricSample_builder{Name: proto.String("m"), Value: proto.Float64(200), Timestamp: timestamppb.New(time.Unix(1000, 0))}.Build()}}.Build()},
 		}.Build()},
@@ -840,7 +840,7 @@ func TestRemoveRecommender(t *testing.T) {
 	}.Build())
 
 	s.CalculateAll()
-	rec, _ := s.GetRecommendation(id)
+	rec, _ := s.GetArbitratedRecommendation(id)
 	if rec.GetRecommendation().GetReplicas() != 10 {
 		t.Errorf("Initial: Want 10, Got %d", rec.GetRecommendation().GetReplicas())
 	}
@@ -851,7 +851,7 @@ func TestRemoveRecommender(t *testing.T) {
 	mustUpdatePolicy(t, s, "default", pol)
 
 	s.CalculateAll()
-	rec, ok := s.GetRecommendation(id)
+	rec, ok := s.GetArbitratedRecommendation(id)
 	if !ok || rec.HasRecommendation() {
 		t.Errorf("After removal: Want nil recommendation, Got %v (ok=%v)", rec.GetRecommendation(), ok)
 	}
@@ -863,7 +863,7 @@ func TestRemoveRecommender(t *testing.T) {
 	}.Build())
 
 	s.CalculateAll()
-	rec, ok = s.GetRecommendation(id)
+	rec, ok = s.GetArbitratedRecommendation(id)
 	if !ok || rec.HasRecommendation() {
 		t.Errorf("After zombie recommendation: Want nil recommendation, Got %v (ok=%v)", rec.GetRecommendation(), ok)
 	}
@@ -1106,7 +1106,7 @@ func TestVerticalResourceArbitration(t *testing.T) {
 
 	s.CalculateAll()
 
-	resp, ok := s.GetRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(pol)}.Build())
+	resp, ok := s.GetArbitratedRecommendation(pb.PolicyId_builder{ClusterName: proto.String("default"), Namespace: proto.String(ns), Name: proto.String(pol)}.Build())
 	if !ok || !resp.HasRecommendation() {
 		t.Fatalf("Expected recommendation, got nil")
 	}
@@ -1130,7 +1130,7 @@ func ingestResource(s *MemoryStore, ts int64, ns, pol, pod, container, metric, r
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(pol),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
 				PodName:       proto.String(pod),
@@ -1151,7 +1151,7 @@ func ingestOwned(s *MemoryStore, ts int64, ns, pol, pod, owner, metric string, v
 	s.AddBatch(pb.IngestMetricsRequest_builder{
 		ClusterName: proto.String("default"),
 		Timestamp:   timestamppb.New(time.Unix(ts, 0)),
-		Policies: []*pb.PolicyBatch{pb.PolicyBatch_builder{
+		PolicyMetrics: []*pb.PolicyMetricBatch{pb.PolicyMetricBatch_builder{
 			Namespace: proto.String(ns), Name: proto.String(pol),
 			Batches: []*pb.MetricBatch{pb.MetricBatch_builder{
 				PodName: proto.String(pod),
@@ -1668,9 +1668,9 @@ func TestOwnedMetricStatuses(t *testing.T) {
 	ingestOwned(s, now, ns, name, "p1", "vpa", "cpu-target", 20)
 	s.CalculateAll()
 
-	resp, ok := s.GetRecommendation(id)
+	resp, ok := s.GetArbitratedRecommendation(id)
 	if !ok {
-		t.Fatal("GetRecommendation() not found")
+		t.Fatal("GetArbitratedRecommendation() not found")
 	}
 	type st struct {
 		Name  string
